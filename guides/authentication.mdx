@@ -1,10 +1,10 @@
 ---
-title: "Authenticate users in the TEI system"
+title: "TEI authentication: servlet login flow and SHA-256 hashing"
 sidebarTitle: "Authentication"
-description: "The TEI system uses three separate login servlets for Administrator, Teacher, and Student roles. Passwords are SHA-256 hashed before comparison against the database."
+description: "Three role-specific login servlets authenticate administrators, teachers, and students. Passwords are SHA-256 hashed before any database comparison."
 ---
 
-The system has three independent login portals, each handling a specific role. All passwords are hashed with SHA-256 before storage and comparison — plain-text passwords are never stored or transmitted to the `users` table. Session-based authentication persists for 30 minutes of inactivity, after which the server invalidates the session automatically.
+The system provides three independent login portals, each handling a single role. All passwords are hashed with SHA-256 before storage and comparison — plain-text passwords are never stored or transmitted to the `users` table. Session-based authentication persists for 30 minutes of inactivity, after which the server invalidates the session automatically.
 
 ## Portales de inicio de sesión
 

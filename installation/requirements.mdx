@@ -69,13 +69,17 @@ These credentials are hardcoded in the source file. **You must change both the u
 
 ## mysqldump
 
-The system includes a database backup feature that relies on `mysqldump.exe`, which must be placed at the following path inside the deployed web application:
+The system includes a database backup feature that relies on `mysqldump.exe`. Before building, place the binary in the project's source tree so that Maven packages it into the WAR:
 
 ```
 src/main/webapp/WEB-INF/mysqldump.exe
 ```
 
-This path is resolved at runtime via the `Constantes.ARCHIVO_MYSQLDUMP` constant (`/tallerDeInglesUAEM/WEB-INF/mysqldump.exe`).
+At runtime, GlassFish resolves the file through the `Constantes.ARCHIVO_MYSQLDUMP` constant, which expands to:
+
+```
+/tallerDeInglesUAEM/WEB-INF/mysqldump.exe
+```
 
 <Note>
 This binary is **Windows-specific**. If you are deploying on Linux or macOS, replace `mysqldump.exe` with the appropriate `mysqldump` binary for your platform and update the constant in `Constantes.java` accordingly before rebuilding.

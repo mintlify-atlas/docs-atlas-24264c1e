@@ -42,7 +42,7 @@ La capa de modelo no usa ningún ORM. Se compone de:
 
 - **`BaseDatos`** (`controller/BaseDatos.java`) — clase central que implementa todas las operaciones CRUD. Abre una nueva conexión JDBC para cada operación usando `DriverManager.getConnection()` con el driver `com.mysql.cj.jdbc.Driver` (mysql-connector-j 8.3.0). Todas las consultas usan `PreparedStatement` para evitar inyección SQL.
 - **POJOs de tabla** (`model/Tables/`) — clases Java simples que representan cada tabla de la base de datos: `Students`, `Teachers`, `Admin_school`, `Grupos`, `Grade`, `Category`, `Report`, `Payment`, `Payment_status`, `Pay_simbology`, `Users`.
-- **Objetos de consulta** (`model/Consultas/`) — clases que representan los resultados de JOINs multi-tabla, usados cuando las vistas necesitan mostrar datos combinados: `ConsultaAlumnos`, `ConsultaTeacher`, `ConsultasAdmin`, `ConsultaGrupos`.
+- **Objetos de consulta** (`model/Consultas/`) — clases que representan los resultados de JOINs multi-tabla, usados cuando las vistas necesitan mostrar datos combinados: `ConsultaAlumnos`, `ConsultaTeacher`, `ConsultasAdmin`, `ConsultaGrupos`, `ConsultaBitacorasAlumnos`, `ConsultaBitacorasProfesores`, `ConsultaCalificaciones`, `ConsultaPagos`.
 
 ## Tecnologías
 
@@ -76,7 +76,9 @@ src/main/java/
 │   ├── Tables/                 # POJOs representando tablas de BD
 │   └── Consultas/              # Objetos para resultados de JOIN
 └── uaemex/mx/tallerdeinglesuaem/
-    └── JakartaRestConfiguration.java
+    ├── JakartaRestConfiguration.java
+    └── resources/
+        └── JakartaEE10Resource.java
 src/main/webapp/
 ├── WEB-INF/
 │   └── web.xml                 # Configuración de sesión (30 min)

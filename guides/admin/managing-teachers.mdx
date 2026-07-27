@@ -1,10 +1,10 @@
 ---
-title: "Register and manage teachers in TEI"
+title: "Register and manage teacher profiles in the TEI web app"
 sidebarTitle: "Teachers"
-description: "Add teacher profiles, assign groups and classrooms, update contact information, and manage their active or inactive status in the TEI system."
+description: "Register teachers with group and classroom assignments, update contact data and active status, and manage login credentials in the TEI admin portal."
 ---
 
-Teachers in the TEI are linked to a group and classroom. Each teacher has a login account with the `MAESTRO` role and a profile in the `teachers` table containing personal data, group assignment, classroom, and active/inactive status. The teacher list is accessible at `/view/listas/listaProfesores.jsp`.
+Teachers in the TEI are linked to a group and classroom. Each teacher has a login account with the `PROFESOR` role and a profile in the `teachers` table containing personal data, group assignment, classroom, and active/inactive status. The teacher list is accessible at `/view/listas/listaProfesores.jsp`.
 
 ## Registrar un profesor
 
@@ -39,21 +39,25 @@ Teachers in the TEI are linked to a group and classroom. Each teacher has a logi
   </Step>
 </Steps>
 
-## Campos del profesor
+## Parámetros del formulario
 
-| Campo | Descripción |
+The following table lists the exact `request.getParameter()` keys read by both `addTeacher` and `updateInfo` (with `rango=PROFESOR`):
+
+| Parámetro | Descripción |
 |---|---|
-| `apellido_paterno_teacher` | Apellido paterno |
-| `apellido_materno_teacher` | Apellido materno |
-| `nombre_teacher` | Nombre(s) |
-| `telefono_teacher` | Teléfono de contacto |
-| `email_teacher` | Correo electrónico |
-| `fecha_nacimiento_teacher` | Fecha de nacimiento |
-| `status_teacher` | Estado: `Activo` / `Inactivo` |
-| `id_group_teacher` | ID del grupo asignado (nullable) |
-| `classroom_teacher` | Salón de clases asignado |
+| `apaterno` | Apellido paterno (uppercased by servlet) |
+| `amaterno` | Apellido materno (uppercased by servlet) |
+| `name` | Nombre(s) (uppercased by servlet) |
+| `birthdate` | Fecha de nacimiento (`YYYY-MM-DD`) |
+| `phone` | Teléfono de contacto |
+| `email` | Correo electrónico |
+| `status` | Estado del profesor: `Activo` or `Inactivo` |
+| `grupo` | ID del grupo asignado (integer, from `grupos` catalog) |
+| `classroom` | Salón de clases asignado |
+| `password1` | Contraseña (enrollment only) |
+| `password2` | Confirmación de contraseña (enrollment only) |
 
-The `id_group_teacher` field links the teacher to an entry in the `grupos` table. It may be left empty at registration time and assigned later via the edit form.
+The `grupo` field links the teacher to an entry in the `grupos` table via the `id_group_teacher` foreign key. It may be left empty at registration time and assigned later via the edit form.
 
 ## Actualizar información
 

@@ -1,7 +1,7 @@
 ---
-title: "Session management and timeout handling in TEI"
+title: "TEI session management: timeouts, attributes, and logout"
 sidebarTitle: "Sessions"
-description: "TEI sessions expire after 30 minutes of inactivity. The system detects expired sessions across all JSPs and redirects users to the session-expired page."
+description: "TEI sessions time out after 30 minutes of inactivity. Protected JSPs verify the session on load and redirect to the expiration page when it is missing."
 ---
 
 TEI uses Jakarta EE's `HttpSession` mechanism to maintain user authentication state across page requests. Sessions time out after 30 minutes of inactivity, as configured in `web.xml`. Every protected JSP checks for a valid session on load and redirects to a dedicated expiration page if the session is missing or has been invalidated.
@@ -27,6 +27,7 @@ The following session attributes are read and written by servlets and JSPs throu
 | Atributo | Tipo | Descripción |
 |---|---|---|
 | `sesionIniciada` | `String` | Nombre de usuario del usuario autenticado. Set at login by the role servlet (`loginAdmin`, `loginTeacher`, `loginStudent`). Present for the entire authenticated session. |
+| `rango` | `String` | Role string for the authenticated user (`ADMINISTRADOR`, `PROFESOR`, or `ESTUDIANTE`). Set by the role dashboard JSPs (`menuAdministrador.jsp`, `menuProfesor.jsp`, `menuAlumno.jsp`) after querying the `users` table — not set by the login servlets directly. |
 | `errorMessage` | `String` | Mensaje de error de login. Set when `USUARIO_NO_ENCONTRADO` or `DATO_INCORRECTO` is returned; read and displayed by the SweetAlert error modal on the login JSP. |
 | `actualizacionCompleta` | `String` | Mensaje de confirmación de operación CRUD. Set after a successful add, update, or delete operation to display a confirmation popup on the next page load. |
 | `userNameRegistrado` | `String` | Username del usuario creado/encontrado. Set by `addStudent`, `addTeacher`, and `addAdmin` servlets to surface the generated or existing username to the administrator. |
@@ -63,22 +64,34 @@ The `cerrarSesion` servlet (mapped to `/cerrarSesion`) handles logout for all th
 
 ```java cerrarSesion.java
 HttpSession sesion = request.getSession();
+String url = "";
 if (sesion != null) {
     String rango = sesion.getAttribute("rango").toString();
-    // Determine role-specific redirect URL from rango…
+    if (rango != null) {
+        switch (rango) {
+            case "ESTUDIANTE":   url = Constantes.VentanasJSP.URL_LOGIN_ALUMNO;   break;
+            case "ADMINISTRADOR": url = Constantes.VentanasJSP.URL_LOGIN_ADMIN;   break;
+            case "PROFESOR":    url = Constantes.VentanasJSP.URL_LOGIN_TEACHER;   break;
+        }
+    } else {
+        url = Constantes.VentanasJSP.URL_INDEX; // rango attribute missing
+    }
     sesion.invalidate();
+} else {
+    url = Constantes.VentanasJSP.URL_SESION_EXPIRADA; // no session at all
 }
-response.sendRedirect(url); // role login page, or URL_INDEX as fallback
+response.sendRedirect(url);
 ```
 
 The role-to-URL mapping used after invalidation:
 
-| Rango | Redirect destino |
+| Condición | Redirect destino |
 |---|---|
-| `ESTUDIANTE` | `Constantes.VentanasJSP.URL_LOGIN_ALUMNO` |
-| `ADMINISTRADOR` | `Constantes.VentanasJSP.URL_LOGIN_ADMIN` |
-| `PROFESOR` | `Constantes.VentanasJSP.URL_LOGIN_TEACHER` |
-| *(no session / null rango)* | `Constantes.VentanasJSP.URL_SESION_EXPIRADA` |
+| `rango` = `ESTUDIANTE` | `Constantes.VentanasJSP.URL_LOGIN_ALUMNO` |
+| `rango` = `ADMINISTRADOR` | `Constantes.VentanasJSP.URL_LOGIN_ADMIN` |
+| `rango` = `PROFESOR` | `Constantes.VentanasJSP.URL_LOGIN_TEACHER` |
+| Session exists but `rango` is `null` | `Constantes.VentanasJSP.URL_INDEX` |
+| No active session (`sesion == null`) | `Constantes.VentanasJSP.URL_SESION_EXPIRADA` |
 
 The logout link that calls `/cerrarSesion` is present in all three side navigation menus (`menuLateralAdministradores.jsp`, `menuLateralAlumnos.jsp`, `menuLateralProfesores.jsp`).
 

@@ -1,7 +1,7 @@
 ---
-title: "Payment tracking and calendar for TEI students"
+title: "Student payment tracking and semester calendar in TEI"
 sidebarTitle: "Payments"
-description: "The TEI tracks up to 8 payment slots per student: an enrollment fee plus 7 monthly installments. Administrators mark payments and update the semester calendar."
+description: "The TEI tracks up to 8 payment slots per student: an enrollment fee plus 7 monthly installments. Administrators update payments via the updatePay servlet."
 ---
 
 The TEI's payment system tracks enrollment and up to 7 monthly tuition payments per semester period. Each student has exactly one `payment` record, represented by the `Payment` model class (`model.Tables.Payment`). Administrators update payment status; students view their current standing in a read-only table. The payment calendar (`pay_simbology` table) defines the amounts, months, and deadlines for each slot and is managed separately by administrators.
@@ -41,9 +41,9 @@ The page renders two tables:
    | **Concepto de Pago** | Descripción del concepto (e.g., "Inscripción", "Mensualidad Enero") |
    | **Costo ($)** | Importe en MXN |
    | **Fecha de Corte** | Fecha límite, o "NO APLICA" si `deadline_pay` es `null` |
-   | **Estatus de Referencia** | "PAGADO" (verde) o "PENDIENTE" (rojo), driven by the JS file `seguimientoPagoJScript.js` |
+   | **Estatus de Referencia** | "PAGADO" (verde) o "PENDIENTE" (rojo), rendered via JSP inline `style` attributes server-side |
 
-The color coding uses inline styles: green `rgba(63, 166, 83, 0.5)` for paid, red `rgba(245, 39, 39, 0.5)` for pending.
+The color coding uses server-rendered inline styles: green `rgba(63, 166, 83, 0.5)` for paid, red `rgba(245, 39, 39, 0.5)` for pending. The `seguimientoPagoJScript.js` file handles dynamic color updates when an **administrator** changes a dropdown value — it does not control the student read-only view.
 
 ## Actualizar pagos (administrador)
 

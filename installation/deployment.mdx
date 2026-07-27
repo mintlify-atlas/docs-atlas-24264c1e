@@ -1,7 +1,7 @@
 ---
-title: "Deploy the TEI WAR to GlassFish 7"
+title: "Build and deploy tallerDeInglesUAEM.war to GlassFish 7"
 sidebarTitle: "Deployment"
-description: "Build the Maven project, copy the WAR to GlassFish autodeploy, and verify the three login portals are accessible."
+description: "Build the Maven WAR, deploy tallerDeInglesUAEM.war to GlassFish 7 via autodeploy or the admin console, and verify all login portals load."
 ---
 
 Once the [database is set up](/installation/database-setup), you are ready to compile the project and deploy the resulting WAR archive to GlassFish 7. GlassFish must be running before deployment, and the MySQL service must be reachable on `localhost:3306`.
@@ -78,7 +78,16 @@ If the main page loads but the login pages return a 404, verify that GlassFish f
 
 ## Configuración del contexto
 
-The context root is configured in `src/main/webapp/WEB-INF/glassfish-web.xml`:
+The context root `/tallerDeInglesUAEM` is derived from the `<finalName>` declared in `pom.xml`:
+
+```xml pom.xml
+<build>
+    <finalName>tallerDeInglesUAEM</finalName>
+    ...
+</build>
+```
+
+GlassFish uses the WAR filename (minus the `.war` extension) as the context root when no explicit `<context-root>` is set in the deployment descriptor. The `src/main/webapp/WEB-INF/glassfish-web.xml` file configures the class loader and JSP behaviour but does **not** override the context root:
 
 ```xml glassfish-web.xml
 <glassfish-web-app error-url="">

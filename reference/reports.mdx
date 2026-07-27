@@ -1,7 +1,7 @@
 ---
-title: "PDF report generation with JasperReports"
+title: "JasperReports PDF generation: four TEI report types"
 sidebarTitle: "Reports"
-description: "The TEI generates four PDF reports using JasperReports 7: student roster, teacher log, grade list, and payment tracking. Reports are streamed directly to the HTTP response."
+description: "The TEI generates four PDF reports via JasperReports 7: student roster, teacher log, grade list, and payment tracking, all streamed to the HTTP response."
 ---
 
 The `Reportes` class (package `controller`) uses **JasperReports 7** to generate PDF documents on demand. Reports are requested through the `reportesServlet` and streamed as `application/pdf` directly to the browser — no temporary files are written to disk. Compiled `.jasper` templates are stored in `src/main/webapp/reports/`.

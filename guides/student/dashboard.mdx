@@ -1,7 +1,7 @@
 ---
-title: "Student portal: access profile and payment status"
+title: "Student portal: view profile and track payment status"
 sidebarTitle: "Dashboard"
-description: "Students log in to view their personal profile, see their assigned teacher and group, check grade reports, and track their payment status for the current semester."
+description: "Students log in to view their profile, see their assigned teacher and group, check grade reports, and track payment status for the current semester."
 ---
 
 After authenticating at `/view/login/loginAlumno.jsp`, the student is directed to `/view/principal/menuAlumno.jsp`. The student portal is read-focused — students view their information but do not make changes themselves through administrative actions. The page title is set by `Constantes.Titulos.TITULO_MENU_ALUMNO` ("Control Escolar | Alumnos") and the session is validated on every load — expired sessions are redirected to `view/sesionExpirada.jsp`. Only users with the `ESTUDIANTE` role are permitted to access this portal.
@@ -25,18 +25,16 @@ After authenticating at `/view/login/loginAlumno.jsp`, the student is directed t
 
 ## Menú lateral del alumno
 
-The sidebar at `/view/menuLateral/menuLateralAlumnos.jsp` is included on every student-facing page. It provides direct navigation to all available sections:
+The student dashboard renders its own lateral menu directly inside `menuAlumno.jsp`. It provides direct navigation to all available sections:
 
 | Elemento de menú | Destino |
 |---|---|
-| **Cuenta** (Inicio) | `/view/principal/menuAlumno.jsp` — perfil y dashboard principal |
+| **Cuenta** | `/view/principal/menuAlumno.jsp` — perfil y dashboard principal |
 | **Seguimiento** | `/view/pagos/seguimientoPago.jsp` — estado de pagos del semestre |
 | **Calificaciones** | `/view/calificaciones/vistaCalificaciones.jsp` — parciales y promedio |
-| **Actualizar Información** | `/view/update/actualizarInformacion.jsp` — edición de datos personales |
-| **Actualizar Usuario** | `/view/update/actualizarUsuario.jsp` — cambio de contraseña y credenciales |
 | **Cerrar Sesión** | Servlet `/tallerDeInglesUAEM/cerrarSesion` — invalida la sesión activa |
 
-The currently active section is highlighted with a dark green background (`rgba(44, 82, 52, 1)`) on the corresponding menu anchor.
+The currently active section is highlighted with a dark green background (`rgba(44, 82, 52, 1)`) on the corresponding menu anchor. The **Modificar Datos** and **Cambiar Contraseña** links are separate buttons rendered on the profile card inside the `<article>` body, not sidebar menu items.
 
 ## Perfil del alumno
 

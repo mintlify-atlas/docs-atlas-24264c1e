@@ -1,7 +1,7 @@
 ---
-title: "Data backup: Excel export and SQL dump"
+title: "TEI data backup: formatted Excel export and SQL dump"
 sidebarTitle: "Backup"
-description: "The TEI offers two backup formats: a formatted Excel workbook (Apache POI 5.2.3) with four sheets, and a full MySQL dump via mysqldump. Both are triggered from the admin interface."
+description: "Two admin-triggered backup formats: an Apache POI Excel workbook with four data sheets, and a full MySQL dump via mysqldump streamed to the browser."
 ---
 
 The `Respaldo` class (package `controller`) implements two independent backup strategies: an **Excel workbook export** via Apache POI and a **SQL dump** via `mysqldump`. Both are triggered from the administrator interface and delivered as browser file downloads — no intermediate files are written to the server's filesystem. The download filename includes the current year and active semester (e.g. `Respaldo_TEI_2025_Periodo_A.xlsx`).

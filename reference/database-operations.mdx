@@ -1,7 +1,7 @@
 ---
-title: "BaseDatos class: CRUD operations reference"
+title: "BaseDatos class: complete CRUD operations reference"
 sidebarTitle: "DB Operations"
-description: "Complete method reference for the BaseDatos class, which implements all JDBC-based create, read, update, and delete operations against the tallerdeingles MySQL schema."
+description: "Full method reference for the BaseDatos class: JDBC insert, update, query, delete, and devinculación operations against the tallerdeingles MySQL schema."
 ---
 
 `BaseDatos` (package `controller`) is the central data-access object for the entire TEI system. It implements the `BaseDatosStruct` interface and uses `PreparedStatement` for every SQL operation, eliminating SQL injection risks. A fresh `Connection` is opened at the start of each method call and closed (or rolled back) in the `finally` block — there is no connection pool; each operation is self-contained.

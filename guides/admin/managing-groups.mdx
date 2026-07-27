@@ -1,7 +1,7 @@
 ---
-title: "Create and configure student groups in TEI"
+title: "Create and delete class groups in the TEI web application"
 sidebarTitle: "Groups"
-description: "Groups define the class structure in TEI — each group has a level (Basic/Intermediate/Advanced), category (Children/Teens), classroom, and an assigned teacher."
+description: "Create groups by proficiency level and age category, assign teachers through their profiles, and delete groups with automatic teacher unlinking."
 ---
 
 Groups (`grupos` table) are the core organizational unit of the TEI. Each group has a proficiency level, age category, classroom, and a teacher assigned to it. Students are linked to teachers, which implicitly assigns them to a group. The group list is accessible at `/view/listas/listaGrupos.jsp` from the admin lateral menu.
@@ -10,25 +10,25 @@ Groups (`grupos` table) are the core organizational unit of the TEI. Each group 
 
 <Steps>
   <Step title="Navigate to Agregar Grupo">
-    From the admin lateral menu, click **Grupos** to open the group list, then click the **Agregar Grupo** button. This navigates to the add group form.
+    From the admin lateral menu, click **Grupos** to open the group list, then click the **Agregar Grupo** button. This navigates to `/view/add/agregarInformacion.jsp?add=4`.
   </Step>
   <Step title="Fill the group form">
-    Complete all required fields at `/view/add/agregarGrupo.jsp`:
-    - **Nivel** — proficiency level selected from the `grade` catalog:
+    Complete all required fields. The form reads exactly three parameters via `request.getParameter()`:
+    - **Nivel** (`grade`) — proficiency level selected from the `grade` catalog:
       - `Básico` (id: 1)
       - `Intermedio` (id: 2)
       - `Avanzado` (id: 3)
-    - **Nivel del 1 al 3** (`level_group`) — integer subgroup number within the chosen level (minimum 1, maximum 3)
-    - **Categoría** — age category selected from the `category` catalog:
+    - **Nivel del 1 al 3** (`level`) — integer subgroup number within the chosen level (minimum 1, maximum 3)
+    - **Categoría** (`category`) — age category selected from the `category` catalog:
       - `Niños` (id: 1)
       - `Adolescentes` (id: 2)
-    - **Salón de clases** (`classroom_group`) — classroom identifier string
+
+    There is no classroom field on the creation form. The `classroom_group` column is initialized to `"null"` by the servlet and cannot be set at creation time.
   </Step>
   <Step title="Submit the form">
     The form submits via `POST` to the `addGroup` servlet (`/tallerDeInglesUAEM/addGroup`), which:
     - Parses the `grade`, `level`, and `category` integer parameters from the request
-    - Creates a `Grupos` object and inserts it into the `grupos` table via `base.insertarGrupos(grupo)`
-    - Note: the `classroom_group` field is initialized to `"null"` at creation time and must be set via the edit form after creation
+    - Creates a `Grupos` object with `classroom_group` hardcoded to `"null"` and inserts it into the `grupos` table via `base.insertarGrupos(grupo)`
   </Step>
   <Step title="Confirmation">
     On success, the servlet sets a session confirmation message ("Grupo Agregado correctamente") and redirects to the group list at `/view/listas/listaGrupos.jsp`.
@@ -59,11 +59,11 @@ To assign or change a teacher's group:
 
 When a student is assigned to a teacher, they are implicitly placed in that teacher's group. A teacher may have `id_group_teacher = NULL` if they are not currently assigned to any group.
 
-## Editar y eliminar grupos
+## Eliminar un grupo
 
-**Edit** a group via the edit icon in the group list, which opens `/view/update/actualizarInformacion.jsp` and submits to `POST /tallerDeInglesUAEM/updateInfo`.
+The group list (`/view/listas/listaGrupos.jsp`) exposes only a delete action — there is no inline edit button for groups. To change a group's level or category, delete the old record and create a new one with the correct values.
 
-**Delete** a group by submitting the delete form, which posts to `POST /tallerDeInglesUAEM/deleteInformation` with parameters `rango=g` and the group's `id`. The servlet executes the following sequence:
+**Delete** a group by clicking the delete icon in the group list, which submits a form to `POST /tallerDeInglesUAEM/deleteInformation` with parameters `rango=g` and the group's `id`. The servlet executes the following sequence:
 
 <Steps>
   <Step title="Desvincular profesores">

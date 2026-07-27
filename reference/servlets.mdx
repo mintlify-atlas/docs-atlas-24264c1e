@@ -1,5 +1,5 @@
 ---
-title: "Servlet reference: all HTTP endpoints in TEI"
+title: "Jakarta EE Servlet reference: all TEI HTTP endpoints"
 sidebarTitle: "Servlets"
 description: "Complete reference for all 18 Jakarta Servlet endpoints in the TEI system: URL patterns, HTTP methods, request parameters, and redirect targets."
 ---
@@ -34,7 +34,7 @@ Calls `BaseDatos.inicioSesion(user, pass, "ADMINISTRADOR")`. On `ACCESO_CONCEDID
 
 ### `POST /loginTeacher`
 
-Authenticates a teacher. Identical flow to `/loginAdmin` but uses role `"MAESTRO"` and redirects to `view/principal/menuProfesor.jsp`.
+Authenticates a teacher. Identical flow to `/loginAdmin` but uses role `"PROFESOR"` and redirects to `view/principal/menuProfesor.jsp`.
 
 ```
 POST /tallerDeInglesUAEM/loginTeacher
@@ -157,10 +157,13 @@ POST /tallerDeInglesUAEM/addGroup
 
 | Parámetro | Tipo | Descripción |
 |---|---|---|
-| `id_grade` | int | ID del nivel académico (`grade.id_grade`) |
-| `level_group` | int | Número de nivel dentro del grado |
-| `id_category_group` | int | ID de la categoría (`category.id_category`) |
-| `classroom_group` | String | Identificador del salón |
+| `grade` | int | ID del nivel académico (`grade.id_grade`) |
+| `level` | int | Número de nivel dentro del grado |
+| `category` | int | ID de la categoría (`category.id_category`) |
+
+<Note>
+  The `classroom_group` field is not accepted as a form parameter — it is hardcoded to `"null"` by the servlet and stored as the string `"null"` in the database. Use the `actualizarGrupos` method (via the edit group flow) to assign a real classroom identifier after creation.
+</Note>
 
 Redirects to `view/listas/listaGrupos.jsp`.
 
@@ -168,7 +171,7 @@ Redirects to `view/listas/listaGrupos.jsp`.
 
 ### `POST /registerStudent`
 
-Student self-registration endpoint (limited use — not exposed in the main admin UI). Accepts the same parameters as `/addStudent`. Used for public enrollment flows.
+Student self-registration endpoint (limited use — not exposed in the main admin UI). Accepts the same personal-data parameters as `/addStudent` **except** `sale_solo` — the self-registration flow always defaults `sale_solo` to `false`. Used for public enrollment flows.
 
 ---
 
@@ -218,11 +221,11 @@ POST /tallerDeInglesUAEM/updateUser
 
 | Parámetro | Tipo | Descripción |
 |---|---|---|
-| `id_user` | int | Identificador del usuario a actualizar |
-| `nom_user` | String | Nuevo nombre de usuario |
+| `iduser` | int | Identificador del usuario a actualizar (`users.id_user`) |
+| `username` | String | Nuevo nombre de usuario |
 | `password1` | String | Nueva contraseña |
 | `password2` | String | Confirmación de nueva contraseña |
-| `rango` | String | Nuevo rol del usuario |
+| `rango` | String | Nuevo rol del usuario (`ESTUDIANTE`, `ADMINISTRADOR`, o `PROFESOR`) |
 
 ---
 
@@ -241,7 +244,7 @@ POST /tallerDeInglesUAEM/updateGrade
 | `secondPartial` | double | Calificación del segundo parcial |
 | `nombreCompleto` | String | Nombre completo del alumno (para mensaje de confirmación) |
 
-Redirects to `listaAlumnos.jsp` if the session role is `ADMINISTRADOR`, or to `asignarCalificaciones.jsp` if is `MAESTRO`.
+Redirects to `listaAlumnos.jsp` if the session role is `ADMINISTRADOR`, or to `asignarCalificaciones.jsp` if the session role is `PROFESOR`.
 
 ---
 
@@ -275,12 +278,12 @@ POST /tallerDeInglesUAEM/updateSchedule
 
 | Parámetro | Tipo | Descripción |
 |---|---|---|
-| `id_pay` | int | ID de la entrada del calendario |
-| `month` | String | Nombre del mes |
-| `description_pay` | String | Descripción del concepto |
-| `cost_pay` | double | Costo en pesos |
-| `period_pay` | String | `Periodo A`, `Periodo B`, o `Cualquiera` |
-| `deadline_pay` | String | Fecha límite (`YYYY-MM-DD`) o vacío para `NULL` |
+| `id_pay` | int | ID de la entrada del calendario (`pay_simbology.id_pay`) |
+| `mes` | String | Nombre del mes (`pay_simbology.month`) |
+| `descripcion` | String | Descripción del concepto de pago (`pay_simbology.description_pay`) |
+| `mensualidad` | double | Costo en pesos (`pay_simbology.cost_pay`) |
+| `periodo` | String | Semestre: `Periodo A`, `Periodo B`, o `Cualquiera` (`pay_simbology.period_pay`) |
+| `deadline` | String | Fecha límite en formato `YYYY-MM-DD`, o vacío/`"null"` para almacenar `NULL` |
 
 Redirects to `view/pagos/calendario.jsp`.
 

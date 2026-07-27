@@ -1,7 +1,7 @@
 ---
-title: "Configure the MySQL database for TEI"
+title: "Set up the tallerdeingles MySQL database for TEI app"
 sidebarTitle: "Database Setup"
-description: "Create the tallerdeingles MySQL database, set up the adminTallerIngles user, and populate the required tables for the TEI system."
+description: "Create the tallerdeingles MySQL database, configure the adminTallerIngles user, and seed the 11 required tables for the TEI system."
 ---
 
 This page walks through creating the MySQL schema required by the Taller de Inglés UAEMEx Ecatepec system. You must complete these steps before deploying the WAR to GlassFish, as the application connects to MySQL immediately on startup and will fail with a `SQLException` if the database or user does not exist.
