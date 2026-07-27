@@ -1,0 +1,85 @@
+---
+title: "Create and configure student groups in TEI"
+sidebarTitle: "Groups"
+description: "Groups define the class structure in TEI — each group has a level (Basic/Intermediate/Advanced), category (Children/Teens), classroom, and an assigned teacher."
+---
+
+Groups (`grupos` table) are the core organizational unit of the TEI. Each group has a proficiency level, age category, classroom, and a teacher assigned to it. Students are linked to teachers, which implicitly assigns them to a group. The group list is accessible at `/view/listas/listaGrupos.jsp` from the admin lateral menu.
+
+## Crear un grupo
+
+<Steps>
+  <Step title="Navigate to Agregar Grupo">
+    From the admin lateral menu, click **Grupos** to open the group list, then click the **Agregar Grupo** button. This navigates to the add group form.
+  </Step>
+  <Step title="Fill the group form">
+    Complete all required fields at `/view/add/agregarGrupo.jsp`:
+    - **Nivel** — proficiency level selected from the `grade` catalog:
+      - `Básico` (id: 1)
+      - `Intermedio` (id: 2)
+      - `Avanzado` (id: 3)
+    - **Nivel del 1 al 3** (`level_group`) — integer subgroup number within the chosen level (minimum 1, maximum 3)
+    - **Categoría** — age category selected from the `category` catalog:
+      - `Niños` (id: 1)
+      - `Adolescentes` (id: 2)
+    - **Salón de clases** (`classroom_group`) — classroom identifier string
+  </Step>
+  <Step title="Submit the form">
+    The form submits via `POST` to the `addGroup` servlet (`/tallerDeInglesUAEM/addGroup`), which:
+    - Parses the `grade`, `level`, and `category` integer parameters from the request
+    - Creates a `Grupos` object and inserts it into the `grupos` table via `base.insertarGrupos(grupo)`
+    - Note: the `classroom_group` field is initialized to `"null"` at creation time and must be set via the edit form after creation
+  </Step>
+  <Step title="Confirmation">
+    On success, the servlet sets a session confirmation message ("Grupo Agregado correctamente") and redirects to the group list at `/view/listas/listaGrupos.jsp`.
+  </Step>
+</Steps>
+
+## Estructura de un grupo
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id_group` | INT (PK) | Identificador único del grupo |
+| `id_grade` | INT (FK) | Nivel: Básico (1), Intermedio (2), Avanzado (3) |
+| `level_group` | INT | Número de subgrupo dentro del nivel (1–3) |
+| `id_category_group` | INT (FK) | Categoría: Niños (1), Adolescentes (2) |
+| `classroom_group` | VARCHAR | Salón de clases asignado |
+
+The `id_grade` and `id_category_group` values are foreign keys resolved from the `grade` and `category` catalog tables respectively. Their human-readable labels are fetched at runtime using `base.obtenerNivel()` and `base.obtenerCategorias()` in the JSP layer.
+
+## Asignar profesor a un grupo
+
+Assigning a teacher to a group is done through the **teacher's profile**, not the group form. The `teachers` table stores the group association via the `id_group_teacher` field.
+
+To assign or change a teacher's group:
+
+1. Open the teacher edit form via the pen icon in the teacher list.
+2. Select the desired group from the **Grupo asignado** dropdown.
+3. Submit — the `updateInfo` servlet (`POST /tallerDeInglesUAEM/updateInfo` with `rango=PROFESOR`) updates `id_group_teacher` on the `teachers` record.
+
+When a student is assigned to a teacher, they are implicitly placed in that teacher's group. A teacher may have `id_group_teacher = NULL` if they are not currently assigned to any group.
+
+## Editar y eliminar grupos
+
+**Edit** a group via the edit icon in the group list, which opens `/view/update/actualizarInformacion.jsp` and submits to `POST /tallerDeInglesUAEM/updateInfo`.
+
+**Delete** a group by submitting the delete form, which posts to `POST /tallerDeInglesUAEM/deleteInformation` with parameters `rango=g` and the group's `id`. The servlet executes the following sequence:
+
+<Steps>
+  <Step title="Desvincular profesores">
+    Calls `bd.desvincularProfesores(id_group)` — sets `id_group_teacher = NULL` for all teachers currently assigned to this group.
+  </Step>
+  <Step title="Eliminar registro del grupo">
+    Calls `bd.eliminarGrupo(id_group)` — removes the row from the `grupos` table.
+  </Step>
+</Steps>
+
+<Note>
+  Students are linked to teachers, not directly to groups. Deleting a group does not remove student records or their teacher assignments, but it will remove the teacher's group association. After deleting a group, re-create the group and reassign the affected teacher to restore the full class structure.
+</Note>
+
+## Cambiar periodo semestral
+
+The TEI system supports two academic payment periods: **Periodo A** and **Periodo B**. Switching between them updates the payment calendar visible to all users.
+
+The period toggle is performed via `POST /tallerDeInglesUAEM/updatePeriodo`, which updates all rows in the `pay_simbology` table — excluding entries with a `Cualquiera` (any-period) designation. Each invocation flips the active period from A to B or from B to A, updating the payment schedule displayed in `/view/pagos/calendario.jsp`.

@@ -1,0 +1,203 @@
+---
+title: "BaseDatos class: CRUD operations reference"
+sidebarTitle: "DB Operations"
+description: "Complete method reference for the BaseDatos class, which implements all JDBC-based create, read, update, and delete operations against the tallerdeingles MySQL schema."
+---
+
+`BaseDatos` (package `controller`) is the central data-access object for the entire TEI system. It implements the `BaseDatosStruct` interface and uses `PreparedStatement` for every SQL operation, eliminating SQL injection risks. A fresh `Connection` is opened at the start of each method call and closed (or rolled back) in the `finally` block — there is no connection pool; each operation is self-contained.
+
+---
+
+## Configuración de conexión
+
+Connection parameters are defined as `public static final` constants in the nested `BaseDatos.configuracionBD` class and referenced by both `Reportes` and `Respaldo`.
+
+```java BaseDatos.java
+public static final class configuracionBD {
+    public static final String NOMBRE_DRIVER    = "com.mysql.cj.jdbc.Driver";
+    public static final String NOMBRE_BASE_DATOS = "tallerdeingles";
+    public static final String URL_DB           = "jdbc:mysql://localhost:3306/tallerdeingles"
+                                                  + "?autoReconnect=true&useSSL=false";
+    public static final String NOMBRE_USUARIO   = "adminTallerIngles";
+    public static final String PASSWORD_USUARIO = "UAEMEX_2026";
+}
+```
+
+The driver is loaded via `Class.forName(NOMBRE_DRIVER)` in the constructor and `conexionBD()` obtains a new connection through `DriverManager.getConnection(URL_DB, NOMBRE_USUARIO, PASSWORD_USUARIO)`.
+
+---
+
+## Constantes de login
+
+The `inicioSesion` method returns one of these integer constants (nested in `BaseDatos.constantesLogin`) to let servlets branch on the authentication result.
+
+```java BaseDatos.java
+public static final class constantesLogin {
+    public static final int DATO_INCORRECTO      = 1; // Password mismatch
+    public static final int USUARIO_NO_ENCONTRADO = 2; // Username not found
+    public static final int ACCESO_CONCEDIDO      = 3; // Credentials valid
+}
+```
+
+---
+
+## Operaciones de inserción
+
+All `insert*` methods open a connection, execute a single `INSERT`, and close the connection. Two methods additionally retrieve the auto-generated primary key via `Statement.RETURN_GENERATED_KEYS` and return it to the caller so dependent records can link to it.
+
+| Método | Tabla destino | Retorno | Notas |
+|---|---|---|---|
+| `insertarAdministrador(Admin_school)` | `admin_school` | `void` | — |
+| `insertarCategoria(Category)` | `category` | `void` | Solo se insertan `Children` o `Teens` |
+| `insertarEstatusDePago(Payment_status)` | `payment_status` | `void` | — |
+| `insertarSeguimientoDePago(Payment)` | `payment` | `int` (PK generado) | Usado por `addStudent` para obtener `id_payment` |
+| `insertarEstudiante(Students)` | `students` | `void` | Almacena `NULL` cuando `id_teacher_student == 0` |
+| `insertarGrupos(Grupos)` | `grupos` | `void` | — |
+| `insertarNivel(Grade)` | `grade` | `void` | Solo `Basico`, `Intermedio`, `Avanzado` |
+| `insertarMes(Pay_simbology)` | `pay_simbology` | `void` | — |
+| `insertarReporteCalificaciones(Report)` | `report` | `int` (PK generado) | Usado por `addStudent` para obtener `id_report` |
+| `insertarTeacher(Teachers)` | `teachers` | `void` | Almacena `NULL` cuando `id_group_teacher == 0` |
+| `insertarUsuario(Users)` | `users` | `void` | El `id_user` real lo genera la BD; se consulta después |
+
+<Note>
+  `insertarSeguimientoDePago` and `insertarReporteCalificaciones` use `con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)` and read back the generated key with `pstm.getGeneratedKeys()`. The `addStudent` servlet relies on both returned IDs to link `students.id_payment_student` and `students.id_report_student`.
+</Note>
+
+---
+
+## Operaciones de actualización
+
+All `actualizar*` methods follow the same pattern: open connection → execute `UPDATE WHERE id = ?` → close connection.
+
+| Método | Tabla actualizada | Campo(s) clave de búsqueda |
+|---|---|---|
+| `actualizarUsuario(Users)` | `users` | `id_user` |
+| `actualizarAdministrador(Admin_school)` | `admin_school` | `id_user_admin` |
+| `actualizarTeacher(Teachers)` | `teachers` | `id_user_teacher` |
+| `actualizarEstudiante(Students)` | `students` | `id_user_student` |
+| `cambiarEstudianteDeGrupo(Students)` | `students` | `id_user_student` — actualiza solo `id_teacher_student` |
+| `actualizarReporteCalificaciones(Report)` | `report` | `id_report` |
+| `actualizarSeguimientoDePago(Payment)` | `payment` | `id_payment` |
+| `actualizarEstatusDePago(Payment_status)` | `payment_status` | `id_status` |
+| `actualizarCalendario(Pay_simbology)` | `pay_simbology` | `id_pay` |
+| `actualizarCalendario(String periodoActual)` | `pay_simbology` | Todos los registros donde `period_pay <> 'Cualquiera'` |
+| `actualizarGrupos(Grupos)` | `grupos` | `id_group` |
+| `actualizarNivel(Grade)` | `grade` | `id_grade` |
+| `actualizarCategorias(Category)` | `category` | `id_category` |
+
+The overloaded `actualizarCalendario(String periodoActual)` is called by the `updatePeriodo` servlet to flip the active semester. Its logic:
+
+```java BaseDatos.java
+switch(periodoActual){
+    case "Periodo A":
+        sql = "UPDATE pay_simbology SET period_pay = 'Periodo B' WHERE period_pay <> 'Cualquiera'";
+        break;
+    case "Periodo B":
+        sql = "UPDATE pay_simbology SET period_pay = 'Periodo A' WHERE period_pay <> 'Cualquiera'";
+        break;
+}
+```
+
+---
+
+## Operaciones de consulta
+
+Query methods return typed `ArrayList` collections. JOIN-based queries return composite objects from the `model.Consultas` package (`ConsultaAlumnos`, `ConsultaTeacher`, `ConsultaCalificaciones`, etc.) that flatten data from multiple tables for display in JSP views.
+
+### Consultas de colecciones completas
+
+| Método | Descripción | Tipo de retorno |
+|---|---|---|
+| `obtenerUsuarios()` | Todos los registros de la tabla `users` | `ArrayList<Users>` |
+| `obtenerTeachers()` | Todos los profesores (`teachers`) | `ArrayList<Teachers>` |
+| `obtenerEstudiantes()` | Todos los alumnos (`students`) | `ArrayList<Students>` |
+| `obtenerAdministrador()` | Todos los administradores | `ArrayList<Admin_school>` |
+| `obtenerCalificaciones()` | Todos los registros de `report` | `ArrayList<Report>` |
+| `obtenerEstatus()` | Catálogo de `payment_status` | `ArrayList<Payment_status>` |
+| `obtenerSeguimiento()` | Todos los registros de `payment` | `ArrayList<Payment>` |
+| `obtenerCalendario()` | Todos los registros de `pay_simbology` | `ArrayList<Pay_simbology>` |
+| `obtenerGrupos()` | Todos los grupos | `ArrayList<Grupos>` |
+| `obtenerNivel()` | Catálogo de `grade` | `ArrayList<Grade>` |
+| `obtenerCategorias()` | Catálogo de `category` | `ArrayList<Category>` |
+
+### Consultas JOIN (vistas compuestas)
+
+| Método | Descripción | Tipo de retorno |
+|---|---|---|
+| `obtenerDatosAlumnos()` | Todos los alumnos con datos de usuario y grupo (JOIN) | `ArrayList<ConsultaAlumnos>` |
+| `obtenerDatosAlumno(String usuario)` | Alumno específico por nombre de usuario (JOIN) | `ArrayList<ConsultaAlumnos>` |
+| `obtenerDatosProfesores()` | Todos los profesores con datos de usuario (JOIN) | `ArrayList<ConsultaTeacher>` |
+| `obtenerDatosProfesores(String usuario)` | Profesor específico por nombre de usuario | `ArrayList<ConsultaTeacher>` |
+| `obtenerDatosAdministradores()` | Todos los administradores con datos de usuario | `ArrayList<ConsultasAdmin>` |
+| `obtenerDatosGrupos()` | Grupos con descripción de nivel y categoría | `ArrayList<ConsultaGrupos>` |
+| `obtenerCalificacionesPorGrupo(int id_teacher)` | Calificaciones de los alumnos del grupo de un profesor | `ArrayList<ConsultaCalificaciones>` |
+
+### Consultas de registro único
+
+| Método | Descripción | Tipo de retorno |
+|---|---|---|
+| `obtenerUsuario(String usuario)` | Usuario por nombre exacto | `ArrayList<Users>` |
+| `obtenerTeacher(int id_user)` | Profesor por `id_user_teacher` | `ArrayList<Teachers>` |
+| `obtenerEstudiante(int id_user)` | Alumno por `id_user_student` | `ArrayList<Students>` |
+| `obtenerSeguimiento(int id)` | Registro de pago por `id_payment` | `ArrayList<Payment>` |
+| `obtenerCalificaciones(int id)` | Calificaciones por `id_report` | `ArrayList<Report>` |
+| `obtenerCalendario(String periodo)` | Entradas del calendario del periodo indicado | `ArrayList<Pay_simbology>` |
+| `obtenerGrupos(int id)` | Grupo por `id_group` | `ArrayList<Grupos>` |
+
+### Autenticación
+
+```java
+public int inicioSesion(String user, String password, String rol)
+```
+
+Hashes `password` using `SHA256`, looks up the user by `nom_user` and `rango`, then compares the stored hash. Returns:
+
+| Valor | Constante | Significado |
+|---|---|---|
+| `3` | `ACCESO_CONCEDIDO` | Credenciales válidas |
+| `1` | `DATO_INCORRECTO` | Usuario encontrado pero contraseña errónea |
+| `2` | `USUARIO_NO_ENCONTRADO` | No existe el usuario con ese rol |
+
+---
+
+## Operaciones de eliminación
+
+All `eliminar*` methods execute `DELETE FROM <tabla> WHERE id = ?`.
+
+| Método | Tabla afectada | Parámetro |
+|---|---|---|
+| `eliminarUsuario(int id_user)` | `users` | `id_user` |
+| `eliminarAdministrador(int id_admin)` | `admin_school` | `id_admin` |
+| `eliminarTeacher(int id_teacher)` | `teachers` | `id_teacher` |
+| `eliminarAlumno(int id_student)` | `students` | `id_student` |
+| `eliminarListaCalificaciones(int id_report)` | `report` | `id_report` |
+| `eliminarListaDePago(int id_payment)` | `payment` | `id_payment` |
+| `eliminarGrupo(int id_group)` | `grupos` | `id_group` |
+
+<Warning>
+  Deletion must always be preceded by the appropriate devinculación method (see below) to avoid FK constraint violations. The `deleteInformation` servlet enforces this ordering automatically.
+</Warning>
+
+---
+
+## Operaciones de desvinculación
+
+Before deleting entities that other tables reference via nullable FKs, these methods set those FK columns to `NULL`. This prevents constraint violations and ensures orphaned rows are not left pointing to deleted records.
+
+| Método | Efecto en la base de datos |
+|---|---|
+| `desvincularProfesores(int id_group)` | `UPDATE teachers SET id_group_teacher = NULL WHERE id_group_teacher = ?` — usado antes de eliminar un grupo |
+| `desvincularAlumnos(int id_teacher)` | `UPDATE students SET id_teacher_student = NULL WHERE id_teacher_student = ?` — usado antes de eliminar un profesor |
+| `desvincularGrupo(int id_teacher)` | `UPDATE teachers SET id_group_teacher = NULL WHERE id_teacher = ?` — desasocia al profesor de su grupo sin eliminarlo |
+| `desvincularListas(int id_student)` | `UPDATE students SET id_payment_student = NULL AND id_report_student = NULL WHERE id_student = ?` — limpia FKs de listas antes de eliminar al alumno |
+
+### Secuencias de eliminación por entidad
+
+The `deleteInformation` servlet (`tipo` parameter maps to the following cases):
+
+| `rango` param | Secuencia de operaciones |
+|---|---|
+| `"a"` (administrador) | `eliminarAdministrador(id_admin)` → `eliminarUsuario(id_user)` |
+| `"s"` (estudiante) | `eliminarAlumno(id_student)` → `eliminarListaDePago(id_student)` → `eliminarListaCalificaciones(id_student)` → `eliminarUsuario(id_user)` |
+| `"t"` (teacher) | `desvincularAlumnos(id_teacher)` → `eliminarTeacher(id_teacher)` → `eliminarUsuario(id_user)` |
+| `"g"` (grupo) | `desvincularProfesores(id_group)` → `eliminarGrupo(id_group)` |

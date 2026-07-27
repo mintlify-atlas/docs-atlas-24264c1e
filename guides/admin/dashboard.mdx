@@ -1,0 +1,62 @@
+---
+title: "Administrator dashboard overview and capabilities"
+sidebarTitle: "Dashboard"
+description: "The Administrator portal provides full access to student, teacher, and group management, payment tracking, grade oversight, PDF report generation, and data backup."
+---
+
+After logging in at `/view/login/loginAdministrador.jsp`, the administrator is redirected to the main dashboard at `/view/principal/menuAdministrador.jsp`. This portal is the control center for all academic operations of the TEI (Taller de Inglés UAEMEx Ecatepec) — displaying the administrator's full name, username, and role, and providing quick access to every management section of the system.
+
+## Funciones del administrador
+
+<CardGroup cols={2}>
+  <Card title="Gestión de Alumnos" icon="user-graduate" href="/guides/admin/managing-students">
+    Inscribir, editar, eliminar y consultar alumnos
+  </Card>
+  <Card title="Gestión de Profesores" icon="chalkboard-teacher" href="/guides/admin/managing-teachers">
+    Registrar y actualizar información de profesores
+  </Card>
+  <Card title="Gestión de Grupos" icon="users" href="/guides/admin/managing-groups">
+    Crear grupos con nivel/categoría y asignar profesores
+  </Card>
+  <Card title="Reportes PDF" icon="file-pdf" href="/reference/reports">
+    Generar bitácoras, listas de calificaciones y seguimiento de pagos
+  </Card>
+  <Card title="Respaldo de Datos" icon="download" href="/reference/backup">
+    Exportar datos en Excel o SQL
+  </Card>
+  <Card title="Calendario de Pagos" icon="calendar" href="/guides/student/payments">
+    Gestionar mensualidades y cambiar periodo semestral
+  </Card>
+</CardGroup>
+
+## Menú lateral
+
+The lateral navigation menu at `/view/menuLateral/menuLateralAdministradores.jsp` is rendered on every administrator page. It provides persistent one-click navigation to all major sections of the system.
+
+| Ítem de menú | Destino |
+|---|---|
+| Inicio (Cuenta) | `/view/principal/menuAdministrador.jsp` |
+| Lista de Alumnos | `/view/listas/listaAlumnos.jsp` |
+| Lista de Profesores | `/view/listas/listaProfesores.jsp` |
+| Lista de Administradores | `/view/listas/listaAdministradores.jsp` |
+| Lista de Grupos | `/view/listas/listaGrupos.jsp` |
+| Documentos | `/view/listas/listaDocumentos.jsp` |
+| Cerrar Sesión | `/tallerDeInglesUAEM/cerrarSesion` |
+
+The active menu item is visually highlighted (solid green background) to indicate the current page.
+
+## Panel de listas
+
+All entity lists use the **DataTables** jQuery plugin (v1.13.6 with Bootstrap 5 integration) for client-side search, sort, and pagination. Each table defaults to 9 rows per page and loads its interface strings from the DataTables Spanish locale plugin.
+
+The lists are accessible from the left menu:
+
+| Lista | URL JSP |
+|---|---|
+| Administradores | `/view/listas/listaAdministradores.jsp` |
+| Alumnos | `/view/listas/listaAlumnos.jsp` |
+| Profesores | `/view/listas/listaProfesores.jsp` |
+| Grupos | `/view/listas/listaGrupos.jsp` |
+| Documentos (reportes) | `/view/listas/listaDocumentos.jsp` |
+
+Each list row exposes inline action icons for editing personal data, changing credentials, viewing payment tracking, viewing grades (students only), and deleting the record. Confirmation pop-ups are handled by **SweetAlert2**.

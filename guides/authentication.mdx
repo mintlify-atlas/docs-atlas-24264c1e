@@ -1,0 +1,117 @@
+---
+title: "Authenticate users in the TEI system"
+sidebarTitle: "Authentication"
+description: "The TEI system uses three separate login servlets for Administrator, Teacher, and Student roles. Passwords are SHA-256 hashed before comparison against the database."
+---
+
+The system has three independent login portals, each handling a specific role. All passwords are hashed with SHA-256 before storage and comparison — plain-text passwords are never stored or transmitted to the `users` table. Session-based authentication persists for 30 minutes of inactivity, after which the server invalidates the session automatically.
+
+## Portales de inicio de sesión
+
+Each role has a dedicated JSP login form and a dedicated servlet that validates credentials against the `users` table using the `rango` column as a role discriminator.
+
+| Rol | URL del portal | Servlet | Rango en BD |
+|---|---|---|---|
+| Administrador | `/view/login/loginAdministrador.jsp` | `GET\|POST /loginAdmin` | `ADMINISTRADOR` |
+| Profesor | `/view/login/loginProfesor.jsp` | `GET\|POST /loginTeacher` | `PROFESOR` |
+| Alumno | `/view/login/loginAlumno.jsp` | `GET\|POST /loginStudent` | `ESTUDIANTE` |
+
+<Note>
+  All three login portals are linked in the public navigation bar so users can reach the correct portal from any login page.
+</Note>
+
+## Flujo de autenticación
+
+<Steps>
+  <Step title="User submits credentials via POST form">
+    The user enters their username (`user`) and password (`pass`) into the login form and clicks **Ingresar**. The form submits via `POST` to the role-specific servlet (e.g., `/loginAdmin`). The servlet processes both `GET` and `POST` through a shared `processRequest` method, and only acts when the `submit` parameter is present.
+  </Step>
+
+  <Step title="Password is hashed with SHA-256">
+    Before any database call is made, the servlet hashes the submitted password using `SHA256.contraseñaNueva()`. This produces a lowercase hexadecimal string that matches the format stored in the database at registration time.
+  </Step>
+
+  <Step title="Database lookup with role check">
+    `BaseDatos.inicioSesion(user, hashedPass, rango)` issues a `SELECT` against the `users` table filtered by both `nom_user` and `rango`. This means a teacher's username will not match on the admin portal even if the credentials are otherwise valid — each portal is role-isolated.
+  </Step>
+
+  <Step title="Switch on the integer result code">
+    The method returns one of three integer constants from `BaseDatos.constantesLogin`:
+
+    | Constant | Value | Meaning | Action |
+    |---|---|---|---|
+    | `ACCESO_CONCEDIDO` | `3` | Username and hashed password both match | Creates `HttpSession`, sets `sesionIniciada` attribute to the username, redirects to the role dashboard |
+    | `USUARIO_NO_ENCONTRADO` | `2` | Username not found for this role | Sets `errorMessage` in session, redirects back to the login portal |
+    | `DATO_INCORRECTO` | `1` | Username matched but the hash did not | Sets `errorMessage` in session, redirects back to the login portal |
+  </Step>
+</Steps>
+
+## Hash de contraseñas (SHA-256)
+
+The `SHA256` class wraps the standard `java.security.MessageDigest` API. It implements the `SHA256Struct` interface and exposes a single method, `contraseñaNueva(String pass)`, which computes the SHA-256 digest and converts the resulting byte array to a lowercase hex string using `String.format("%02x", b)` for each byte.
+
+The method throws a `RuntimeException` wrapping the underlying `NoSuchAlgorithmException` if (in theory) the JVM does not support `SHA-256` — this is never expected in practice on any compliant Jakarta EE runtime.
+
+The following excerpt from `loginAdmin.java` shows exactly how the class is used at login time:
+
+```java loginAdmin.java
+SHA256 hash = new SHA256();
+String pass = hash.contraseñaNueva(request.getParameter("pass"));
+int resultado = base.inicioSesion(user, pass, "ADMINISTRADOR");
+```
+
+<Note>
+  The `SHA256.contraseñaNueva()` method computes the SHA-256 digest and returns a hex string. Passwords are never stored in plain text. The same method is called at registration time so that stored and compared hashes are always produced by the same algorithm.
+</Note>
+
+## Nombre de usuario auto-generado (alumnos)
+
+When an administrator enrolls a new student through the `addStudent` servlet, no manual username is entered. Instead, the username is deterministically generated from the student's personal data at enrollment time. All name components are uppercased via `.toUpperCase()` before slicing.
+
+```java addStudent.java
+String apaterno = request.getParameter("apaterno").toUpperCase();
+String amaterno = request.getParameter("amaterno").toUpperCase();
+String name     = request.getParameter("name").toUpperCase();
+String birthdate = request.getParameter("birthdate"); // format: YYYY-MM-DD
+
+String nomUsuario = apaterno.substring(0,2) + amaterno.substring(0,1) + name.substring(0,3)
+                  + birthdate.substring(2,4) + birthdate.substring(5,7) + birthdate.substring(8,10);
+// Example: MOAVAL + 990115 → MOAVAL990115
+```
+
+The format is:
+
+| Segment | Source | Length |
+|---|---|---|
+| First 2 chars of paternal surname (`apaterno`) | e.g. `MORALES` → `MO` | 2 |
+| First 1 char of maternal surname (`amaterno`) | e.g. `AVILA` → `A` | 1 |
+| First 3 chars of given name (`name`) | e.g. `VALERIA` → `VAL` | 3 |
+| Year digits YY (`birthdate[2:4]`) | e.g. `1999-01-15` → `99` | 2 |
+| Month digits MM (`birthdate[5:7]`) | e.g. `1999-01-15` → `01` | 2 |
+| Day digits DD (`birthdate[8:10]`) | e.g. `1999-01-15` → `15` | 2 |
+
+**Total:** 12 characters, all uppercase letters and digits. This username is then stored in the `users` table as `nom_user` and shown to the administrator via the `userNameRegistrado` session attribute after successful registration.
+
+## Errores de autenticación
+
+<AccordionGroup>
+  <Accordion title="Usuario no encontrado">
+    The submitted username does not exist in the `users` table for the role associated with the portal being used. This can mean:
+
+    - The username was never created.
+    - The user registered under a different role (e.g., a teacher's username entered on the student portal).
+    - The username was typed incorrectly (case matters — usernames are stored with the exact casing produced by the auto-generation or manual entry).
+
+    The servlet sets `session.setAttribute("errorMessage", "Usuario no encontrado")` and redirects back to the login page. The JSP reads this attribute via `session.getAttribute("errorMessage")` and displays it through the SweetAlert error modal.
+  </Accordion>
+
+  <Accordion title="Contraseña incorrecta">
+    The username was found in the `users` table with the correct role, but the SHA-256 hash of the submitted password does not match the stored hash. Common causes:
+
+    - The user typed the wrong password.
+    - The password was set or reset using a different encoding or capitalisation.
+    - A manual database entry was made with an unhashed or differently-hashed password.
+
+    The servlet sets `session.setAttribute("errorMessage", "La contraseña ingresada es incorrecta")` and redirects back to the login page. Check that the password was originally set through the TEI registration flow so that the same `SHA256.contraseñaNueva()` method was used to produce the stored hash.
+  </Accordion>
+</AccordionGroup>

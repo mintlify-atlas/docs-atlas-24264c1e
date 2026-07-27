@@ -1,0 +1,109 @@
+---
+title: "Configure the MySQL database for TEI"
+sidebarTitle: "Database Setup"
+description: "Create the tallerdeingles MySQL database, set up the adminTallerIngles user, and populate the required tables for the TEI system."
+---
+
+This page walks through creating the MySQL schema required by the Taller de Inglés UAEMEx Ecatepec system. You must complete these steps before deploying the WAR to GlassFish, as the application connects to MySQL immediately on startup and will fail with a `SQLException` if the database or user does not exist.
+
+## Crear la base de datos
+
+<Steps>
+  <Step title="Conectarse a MySQL como root">
+    Open a terminal and log in to MySQL with an account that has `CREATE DATABASE` and `CREATE USER` privileges:
+
+    ```bash
+    mysql -u root -p
+    ```
+  </Step>
+
+  <Step title="Crear la base de datos">
+    Create the `tallerdeingles` schema with UTF-8 character support:
+
+    ```sql
+    CREATE DATABASE tallerdeingles
+        CHARACTER SET utf8mb4
+        COLLATE utf8mb4_unicode_ci;
+    ```
+  </Step>
+
+  <Step title="Crear el usuario de la aplicación">
+    Create the dedicated MySQL user and grant it full privileges on the new schema:
+
+    ```sql
+    CREATE USER 'adminTallerIngles'@'localhost' IDENTIFIED BY 'UAEMEX_2026';
+    GRANT ALL PRIVILEGES ON tallerdeingles.* TO 'adminTallerIngles'@'localhost';
+    FLUSH PRIVILEGES;
+    ```
+  </Step>
+
+  <Step title="Seleccionar la base de datos">
+    Switch to the new schema to run subsequent DDL statements:
+
+    ```sql
+    USE tallerdeingles;
+    ```
+  </Step>
+</Steps>
+
+## Tablas del sistema
+
+The TEI application uses 11 core tables. All tables must exist before the application is started — the application does **not** auto-create them.
+
+| Tabla | Descripción |
+|---|---|
+| `users` | Credenciales de acceso (usuario, contraseña SHA-256, rango) |
+| `admin_school` | Datos personales de administradores |
+| `teachers` | Datos de profesores y grupo asignado |
+| `students` | Datos de alumnos, profesor asignado, referencias a pagos y calificaciones |
+| `grupos` | Grupos de clase con nivel y categoría |
+| `grade` | Catálogo de niveles: Básico, Intermedio, Avanzado |
+| `category` | Catálogo de categorías: Niños, Adolescentes |
+| `report` | Registro de calificaciones (1er parcial, 2do parcial, promedio) |
+| `payment` | Seguimiento de pagos: inscripción + 7 mensualidades |
+| `payment_status` | Catálogo de estatus: Activo, Baja, Pendiente |
+| `pay_simbology` | Calendario de mensualidades con fechas límite y costos |
+
+## Datos iniciales requeridos
+
+Several features of the application depend on catalog tables being pre-populated before any user logs in. The tables `grade`, `category`, `payment_status`, and `pay_simbology` must contain their initial rows, otherwise the registration forms and payment tracking screens will display empty option lists.
+
+Run the following `INSERT` statements after creating the schema:
+
+```sql
+-- Niveles
+INSERT INTO grade (description_grade) VALUES ('Básico'), ('Intermedio'), ('Avanzado');
+
+-- Categorías
+INSERT INTO category (description_category) VALUES ('Niños'), ('Adolescentes');
+
+-- Estatus de pago
+INSERT INTO payment_status (description_status) VALUES ('Activo'), ('Baja'), ('Pendiente de Pago');
+```
+
+The `pay_simbology` table stores the monthly payment calendar (up to 7 monthly fees plus a registration entry). Populate it with the specific months, deadlines, and costs for each academic period before the semester begins. Each row represents one payment slot with fields for `month`, `description_pay`, `cost_pay`, `period_pay`, and `deadline_pay`.
+
+<Note>
+The first administrator account must also be created before any user can log in. You can insert it directly via SQL into the `users` table (with the password stored as a SHA-256 hash) and then add the corresponding personal record to `admin_school`, or use the administrator registration form once the application is deployed and accessible.
+</Note>
+
+## Verificar la conexión
+
+The application establishes its MySQL connection via `BaseDatos.configuracionBD` using plain JDBC (`DriverManager.getConnection`). The full connection URL is:
+
+```
+jdbc:mysql://localhost:3306/tallerdeingles?autoReconnect=true&useSSL=false
+```
+
+If the application cannot reach the database, GlassFish will log a `SQLException` with the full stack trace in:
+
+```
+$GLASSFISH_HOME/glassfish/domains/domain1/logs/server.log
+```
+
+Common causes of a connection failure at startup:
+
+- The `tallerdeingles` database does not exist.
+- The `adminTallerIngles` user was not created or has insufficient privileges.
+- MySQL is not running, or is bound to a different port than `3306`.
+- The credentials in `BaseDatos.configuracionBD` were changed in the source but the WAR was not rebuilt.

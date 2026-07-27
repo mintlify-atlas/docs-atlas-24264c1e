@@ -1,0 +1,116 @@
+---
+title: "Deploy the TEI WAR to GlassFish 7"
+sidebarTitle: "Deployment"
+description: "Build the Maven project, copy the WAR to GlassFish autodeploy, and verify the three login portals are accessible."
+---
+
+Once the [database is set up](/installation/database-setup), you are ready to compile the project and deploy the resulting WAR archive to GlassFish 7. GlassFish must be running before deployment, and the MySQL service must be reachable on `localhost:3306`.
+
+## Compilar el proyecto
+
+<Steps>
+  <Step title="Ir al directorio raíz del proyecto">
+    Navigate to the folder that contains `pom.xml`:
+
+    ```bash
+    cd tallerIngles-UAEMEcatepec
+    ```
+  </Step>
+
+  <Step title="Ejecutar el empaquetado Maven">
+    Clean any previous build output and produce the WAR file:
+
+    ```bash
+    mvn clean package
+    ```
+
+    Maven compiles all Java sources targeting Java 11, bundles the runtime dependencies (MySQL Connector/J, JasperReports, Apache POI, etc.), and writes the archive to:
+
+    ```
+    target/tallerDeInglesUAEM.war
+    ```
+  </Step>
+
+  <Step title="Verificar el artefacto">
+    Confirm the WAR was created successfully:
+
+    ```bash
+    ls -lh target/tallerDeInglesUAEM.war
+    ```
+  </Step>
+</Steps>
+
+## Desplegar el WAR
+
+Choose one of the two deployment methods below.
+
+### Opción A: autodeploy
+
+Copy the WAR directly into GlassFish's `autodeploy` directory. GlassFish monitors this folder and deploys any new or updated archive automatically within a few seconds:
+
+```bash
+cp target/tallerDeInglesUAEM.war \
+   $GLASSFISH_HOME/glassfish/domains/domain1/autodeploy/
+```
+
+GlassFish will create a marker file (`tallerDeInglesUAEM.war_deployed`) in the same directory once deployment completes successfully, or `tallerDeInglesUAEM.war_deployFailed` if an error occurred.
+
+### Opción B: consola de administración
+
+1. Open the GlassFish Administration Console in your browser: `http://localhost:4848`
+2. In the left panel, navigate to **Applications**.
+3. Click **Deploy**.
+4. Under *Location*, select **Packaged File to Be Uploaded to the Server** and choose `target/tallerDeInglesUAEM.war`.
+5. Leave the context root as `/tallerDeInglesUAEM` and click **OK**.
+
+## Verificar el despliegue
+
+The application is deployed under the context root `/tallerDeInglesUAEM`, which matches the `Constantes.DOMINIO` constant defined in `controller/Constantes.java`. Use the URLs below to confirm the application is running correctly after deployment.
+
+| Portal | URL |
+|---|---|
+| Página principal | `http://localhost:8080/tallerDeInglesUAEM/` |
+| Login administrador | `http://localhost:8080/tallerDeInglesUAEM/view/login/loginAdministrador.jsp` |
+| Login profesor | `http://localhost:8080/tallerDeInglesUAEM/view/login/loginProfesor.jsp` |
+| Login alumno | `http://localhost:8080/tallerDeInglesUAEM/view/login/loginAlumno.jsp` |
+
+If the main page loads but the login pages return a 404, verify that GlassFish fully completed deployment and that no errors appear in the server log.
+
+## Configuración del contexto
+
+The context root is configured in `src/main/webapp/WEB-INF/glassfish-web.xml`:
+
+```xml glassfish-web.xml
+<glassfish-web-app error-url="">
+  <class-loader delegate="true"/>
+  <jsp-config>
+    <property name="keepgenerated" value="true">
+      <description>Keep a copy of the generated servlet class' java code.</description>
+    </property>
+  </jsp-config>
+</glassfish-web-app>
+```
+
+The `<class-loader delegate="true"/>` directive tells GlassFish to use the parent class loader first, which is the correct behaviour for a Jakarta EE application that relies on APIs provided by the server.
+
+Throughout the application, all internal URLs are built by prepending the `Constantes.DOMINIO` constant:
+
+```java
+// controller/Constantes.java
+public static final String DOMINIO = "/tallerDeInglesUAEM/";
+```
+
+This constant is used for every JSP navigation path, every servlet mapping, every CSS/JS/image resource URL, and the `mysqldump.exe` backup path. If you ever need to change the context root, update `Constantes.DOMINIO`, set the new context root in the GlassFish deployment descriptor, and rebuild the WAR.
+
+<Tip>
+GlassFish logs are written to:
+
+```
+$GLASSFISH_HOME/glassfish/domains/domain1/logs/server.log
+```
+
+If deployment fails, the two most common errors to look for are:
+
+- **`ClassNotFoundException`** — the MySQL JDBC driver JAR is missing from the WAR. Verify that `mysql-connector-j` has no `<scope>provided</scope>` in `pom.xml` and rebuild.
+- **`SQLException`** — the application cannot connect to MySQL. Check that the database exists, the `adminTallerIngles` user has the correct password and privileges, and MySQL is listening on port `3306`.
+</Tip>

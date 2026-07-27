@@ -1,47 +1,79 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get started with Taller de Inglés in 4 steps"
+sidebarTitle: "Quickstart"
+description: "Clone, configure MySQL, build with Maven, and deploy the WAR to GlassFish to have the system running locally in minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+Esta guía te lleva desde cero hasta tener el sistema del Taller de Inglés ejecutándose en tu máquina local. Clonarás el repositorio, crearás la base de datos MySQL con el usuario correcto, compilarás el archivo WAR con Maven y lo desplegarás en GlassFish. El proceso completo toma menos de diez minutos en un entorno con las herramientas ya instaladas (JDK 11+, Maven, MySQL 8 y GlassFish 7+).
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Clonar el repositorio">
+    Clona el proyecto desde GitHub y entra al directorio generado:
 
     ```bash
-    npm install your-package
+    git clone https://github.com/LuisAMoralesA/tallerIngles-UAEMEcatepec.git && cd tallerIngles-UAEMEcatepec
     ```
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+
+  <Step title="Configurar MySQL">
+    Crea la base de datos y el usuario de aplicación. Conéctate a MySQL como root y ejecuta:
+
+    ```sql
+    CREATE DATABASE tallerdeingles CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE USER 'adminTallerIngles'@'localhost' IDENTIFIED BY 'UAEMEX_2026';
+    GRANT ALL PRIVILEGES ON tallerdeingles.* TO 'adminTallerIngles'@'localhost';
+    FLUSH PRIVILEGES;
+    ```
+
+    <Warning>
+      Las credenciales anteriores (`adminTallerIngles` / `UAEMEX_2026`) son las predeterminadas de desarrollo y están almacenadas directamente en `BaseDatos.configuracionBD`. **No las uses en producción.** Para cambiarlas, edita las constantes `NOMBRE_USUARIO` y `PASSWORD_USUARIO` dentro de la clase `controller/BaseDatos.java` antes de compilar.
+    </Warning>
+  </Step>
+
+  <Step title="Compilar con Maven">
+    Desde la raíz del proyecto, ejecuta el ciclo de construcción estándar de Maven:
 
     ```bash
-    your-cli init
+    mvn clean package
+    ```
+
+    Maven compilará las fuentes Java (requiere **Java 11+**), procesará los recursos y generará el artefacto desplegable en:
+
+    ```
+    target/tallerDeInglesUAEM.war
     ```
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+
+  <Step title="Desplegar en GlassFish">
+    Copia el WAR al directorio `autodeploy` de tu instalación de GlassFish para que el servidor lo detecte y despliegue automáticamente:
 
     ```bash
-    your-cli start
+    cp target/tallerDeInglesUAEM.war $GLASSFISH_HOME/glassfish/domains/domain1/autodeploy/
     ```
+
+    Una vez desplegado, la aplicación estará disponible en:
+
+    ```
+    http://localhost:8080/tallerDeInglesUAEM/
+    ```
+
+    Cada rol de usuario tiene su propia página de inicio de sesión:
+
+    | Rol | URL de acceso |
+    |---|---|
+    | Administradores | `http://localhost:8080/tallerDeInglesUAEM/view/login/loginAdministrador.jsp` |
+    | Profesores | `http://localhost:8080/tallerDeInglesUAEM/view/login/loginProfesor.jsp` |
+    | Alumnos | `http://localhost:8080/tallerDeInglesUAEM/view/login/loginAlumno.jsp` |
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## Próximos pasos
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Configurar base de datos" icon="database" href="/installation/database-setup">
+    Aprende a configurar el esquema completo de tablas, datos iniciales y a ajustar la cadena de conexión JDBC para entornos distintos al local.
+  </Card>
+  <Card title="Gestión de alumnos" icon="users" href="/guides/admin/managing-students">
+    Consulta cómo inscribir alumnos, asignarles grupos y gestionar su información personal desde el panel de administración.
+  </Card>
+</CardGroup>

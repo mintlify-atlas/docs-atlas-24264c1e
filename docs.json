@@ -1,72 +1,101 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "Taller de Inglés UAEMEx Ecatepec",
+  "theme": "almond",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
-  },
-  "favicon": "/favicon.svg",
-  "navigation": {
-    "pages": [
-      {
-        "group": "Getting Started",
-        "pages": [
-          "index",
-          "quickstart"
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "primary": "#1a3a6b",
+    "light": "#3a6ec4",
+    "dark": "#0d1f3c"
   },
   "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
     "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://app.mintlify.com"
+      "type": "github",
+      "href": "https://github.com/LuisAMoralesA/tallerIngles-UAEMEcatepec"
     }
-  },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
-    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/LuisAMoralesA/tallerIngles-UAEMEcatepec"
     }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Overview",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Installation & Configuration",
+            "pages": [
+              "installation/requirements",
+              "installation/database-setup",
+              "installation/deployment"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "User Guides",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "guides/authentication",
+              "guides/session-management"
+            ]
+          },
+          {
+            "group": "Administrator",
+            "pages": [
+              "guides/admin/dashboard",
+              "guides/admin/managing-students",
+              "guides/admin/managing-teachers",
+              "guides/admin/managing-groups"
+            ]
+          },
+          {
+            "group": "Teacher",
+            "pages": [
+              "guides/teacher/dashboard",
+              "guides/teacher/grades"
+            ]
+          },
+          {
+            "group": "Student",
+            "pages": [
+              "guides/student/dashboard",
+              "guides/student/payments"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Technical Reference",
+        "groups": [
+          {
+            "group": "Data Model",
+            "pages": [
+              "reference/data-model",
+              "reference/database-operations"
+            ]
+          },
+          {
+            "group": "Servlets & Controllers",
+            "pages": [
+              "reference/servlets",
+              "reference/reports",
+              "reference/backup"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

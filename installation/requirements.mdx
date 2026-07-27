@@ -1,0 +1,82 @@
+---
+title: "System requirements for deploying TEI on GlassFish"
+sidebarTitle: "Requirements"
+description: "Software prerequisites to build and run the Taller de Inglés system: Java 11, GlassFish 7, MySQL 8, Maven 3.8, and the mysql-connector-j JDBC driver."
+---
+
+Before building or running the Taller de Inglés UAEMEx Ecatepec (TEI) system, make sure your environment satisfies all the prerequisites listed on this page. The application is packaged as a standard Java EE WAR archive, compiled against Java 11, and intended to run inside GlassFish 7 with a MySQL 8 backend.
+
+## Software requerido
+
+Install and configure every component in the table below before proceeding to the build or deployment steps.
+
+| Componente | Versión mínima | Notas |
+|---|---|---|
+| Java (JDK) | 11 | OpenJDK or Oracle JDK |
+| Apache Maven | 3.8.1 | For building the WAR |
+| GlassFish | 7.0 | Jakarta EE 10 compatible |
+| MySQL | 8.0 | With InnoDB engine |
+| MySQL Connector/J | 8.3.0 | Bundled in pom.xml |
+
+## Dependencias Maven
+
+All project dependencies are declared in `pom.xml` and are resolved automatically by Maven during the build. The key runtime and compile-scope dependencies are shown below.
+
+```xml pom.xml
+<!-- Jakarta EE 10 API -->
+<dependency>
+    <groupId>jakarta.platform</groupId>
+    <artifactId>jakarta.jakartaee-api</artifactId>
+    <version>10.0.0</version>
+    <scope>provided</scope>
+</dependency>
+<!-- MySQL JDBC Driver -->
+<dependency>
+    <groupId>com.mysql</groupId>
+    <artifactId>mysql-connector-j</artifactId>
+    <version>8.3.0</version>
+</dependency>
+<!-- JasperReports PDF -->
+<dependency>
+    <groupId>net.sf.jasperreports</groupId>
+    <artifactId>jasperreports</artifactId>
+    <version>7.0.3</version>
+</dependency>
+<!-- Apache POI Excel -->
+<dependency>
+    <groupId>org.apache.poi</groupId>
+    <artifactId>poi-ooxml</artifactId>
+    <version>5.2.3</version>
+</dependency>
+```
+
+The `jakarta.jakartaee-api` dependency is `provided` because GlassFish 7 already ships the Jakarta EE 10 runtime. The JDBC driver, JasperReports, and Apache POI artifacts are bundled inside the WAR so they are available at runtime without any additional GlassFish configuration.
+
+## Configuración de base de datos
+
+The database connection is hardcoded in the inner class `BaseDatos.configuracionBD` inside `src/main/java/controller/BaseDatos.java`:
+
+| Parámetro | Valor |
+|---|---|
+| Driver class | `com.mysql.cj.jdbc.Driver` |
+| URL | `jdbc:mysql://localhost:3306/tallerdeingles?autoReconnect=true&useSSL=false` |
+| Usuario | `adminTallerIngles` |
+| Contraseña | `UAEMEX_2026` |
+
+<Warning>
+These credentials are hardcoded in the source file. **You must change both the username and the password before deploying to a production environment.** Failure to do so exposes the database with well-known default credentials. After changing the values in `BaseDatos.java`, rebuild the project with `mvn clean package` and redeploy the WAR.
+</Warning>
+
+## mysqldump
+
+The system includes a database backup feature that relies on `mysqldump.exe`, which must be placed at the following path inside the deployed web application:
+
+```
+src/main/webapp/WEB-INF/mysqldump.exe
+```
+
+This path is resolved at runtime via the `Constantes.ARCHIVO_MYSQLDUMP` constant (`/tallerDeInglesUAEM/WEB-INF/mysqldump.exe`).
+
+<Note>
+This binary is **Windows-specific**. If you are deploying on Linux or macOS, replace `mysqldump.exe` with the appropriate `mysqldump` binary for your platform and update the constant in `Constantes.java` accordingly before rebuilding.
+</Note>

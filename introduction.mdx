@@ -1,0 +1,40 @@
+---
+title: "Taller de Inglés UAEMEx: sistema de gestión académica"
+sidebarTitle: "Introduction"
+description: "El TEI es un taller independiente de inglés para niños de 8-15 años en UAEM Ecatepec. Este sistema digitaliza su gestión académica completa."
+---
+
+El Taller de Enseñanza del Idioma Inglés **(TEI)** es una dependencia académica del Centro Universitario UAEM Ecatepec, perteneciente a la Universidad Autónoma del Estado de México. A diferencia del Centro de Enseñanza de Lenguas **(CELe)** — que atiende a la comunidad universitaria en general —, el TEI opera de manera completamente independiente y está orientado exclusivamente a niños y adolescentes de entre 8 y 15 años. Su misión es proporcionar oportunidades de aprendizaje de calidad del idioma inglés en su totalidad cultural, dentro de un ambiente humanista. Dado que el taller funciona de forma autónoma, no tiene acceso a la plataforma de gestión académica institucional de la universidad, por lo que toda la administración de alumnos, profesores y pagos se manejaba de manera manual. Este sistema nace para digitalizar y centralizar esa gestión completa.
+
+## ¿Qué es el sistema?
+
+El sistema de gestión académica del TEI es una aplicación web construida sobre **Jakarta EE 10**, empaquetada como un archivo WAR y desplegada en un servidor **GlassFish 7+**. Utiliza una base de datos **MySQL 8** como backend de persistencia, vistas **JSP** (Jakarta Server Pages) enriquecidas con Bootstrap 5 en el front-end, y un patrón MVC clásico implementado con Jakarta Servlets en la capa de control. El sistema cuenta con tres roles de usuario claramente diferenciados — Administrador, Profesor y Alumno —, cada uno con su propio flujo de autenticación, menú principal y conjunto de funcionalidades.
+
+## Roles de usuario
+
+<CardGroup cols={3}>
+  <Card title="Administrador" icon="shield-halved" href="/guides/admin/dashboard">
+    Acceso total al sistema. Gestiona alumnos, profesores, grupos, pagos, calificaciones, reportes y respaldos de datos. Es el único rol que puede crear y eliminar registros.
+  </Card>
+  <Card title="Profesor" icon="chalkboard-user" href="/guides/teacher/dashboard">
+    Acceso a las funciones docentes. Puede consultar y asignar calificaciones de primer y segundo parcial, visualizar los grupos que tiene asignados y ver el perfil de sus alumnos.
+  </Card>
+  <Card title="Alumno" icon="graduation-cap" href="/guides/student/dashboard">
+    Acceso de consulta personal. Puede visualizar su perfil académico, sus calificaciones parciales y promedio final, así como el estatus actual de sus pagos de inscripción y mensualidades.
+  </Card>
+</CardGroup>
+
+## Funcionalidades principales
+
+- **Inscripción de alumnos** con nombre de usuario auto-generado y contraseña cifrada con SHA-256
+- **Gestión de grupos** por nivel (Básico / Intermedio / Avanzado) y categoría (Niños / Adolescentes)
+- **Registro de calificaciones**: primer parcial, segundo parcial y cálculo de promedio final
+- **Seguimiento de pagos**: inscripción inicial + hasta 7 mensualidades por periodo semestral, con estatus actualizable
+- **Generación de reportes PDF** (JasperReports): bitácoras de alumnos y profesores, listas de calificaciones, reporte de seguimiento de pagos
+- **Respaldo de datos en Excel** (Apache POI) y volcado completo de la base de datos en formato SQL (mysqldump)
+- **Calendario de mensualidades** con soporte para cambio de periodo escolar (Periodo A / Periodo B)
+- **Gestión de sesiones** con timeout automático de 30 minutos configurado en `web.xml`
+
+<Note>
+  Este sistema es un proyecto de tesis desarrollado por **Luis Antonio Morales Avalos**, alumno de la carrera de Ingeniería en Computación del Centro Universitario UAEM Ecatepec, Universidad Autónoma del Estado de México.
+</Note>

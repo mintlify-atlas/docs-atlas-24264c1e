@@ -1,0 +1,67 @@
+---
+title: "Teacher portal: view groups, students, and grades"
+sidebarTitle: "Dashboard"
+description: "After logging in, teachers see their assigned group and student list, and can navigate to grade entry and view their personal profile."
+---
+
+After authenticating at `/view/login/loginProfesor.jsp`, the teacher is redirected to `/view/principal/menuProfesor.jsp`. The teacher portal is focused on viewing assigned students and managing their grades. The page title is set by `Constantes.Titulos.TITULO_MENU_TEACHER` ("Control Escolar | Profesores") and the session is validated on every load — expired sessions are immediately redirected to `view/sesionExpirada.jsp`.
+
+## Funciones del profesor
+
+<CardGroup cols={2}>
+  <Card title="Calificaciones" icon="star" href="/guides/teacher/grades">
+    Registrar y actualizar calificaciones del grupo asignado
+  </Card>
+  <Card title="Vista de Calificaciones" icon="list" href="/guides/teacher/grades">
+    Ver el resumen de calificaciones con primer parcial, segundo parcial y promedio
+  </Card>
+  <Card title="Mi Perfil" icon="user" href="/guides/authentication">
+    Ver y actualizar datos personales y credenciales
+  </Card>
+  <Card title="Cerrar Sesión" icon="right-from-bracket" href="/guides/session-management">
+    Cerrar la sesión actual del sistema
+  </Card>
+</CardGroup>
+
+## Menú lateral del profesor
+
+The sidebar at `/view/menuLateral/menuLateralProfesores.jsp` is included on every teacher-facing page. It provides direct navigation to all available sections:
+
+| Elemento de menú | Destino |
+|---|---|
+| **Inicio** (Cuenta) | `/view/principal/menuProfesor.jsp` — dashboard principal |
+| **Información del grupo** (Calificaciones) | `/view/calificaciones/asignarCalificaciones.jsp` — lista de alumnos y calificaciones |
+| **Vista de Calificaciones** | `/view/calificaciones/vistaCalificaciones.jsp` — vista de calificaciones por alumno |
+| **Actualizar Información** | `/view/update/actualizarInformacion.jsp` — edición de datos personales |
+| **Actualizar Usuario** | `/view/update/actualizarUsuario.jsp` — cambio de contraseña y credenciales |
+| **Cerrar Sesión** | Servlet `/tallerDeInglesUAEM/cerrarSesion` — invalida la sesión activa |
+
+The currently active section is highlighted with a dark green background (`rgba(44, 82, 52, 1)`) on the corresponding menu anchor.
+
+## Grupo asignado
+
+The teacher's group is identified by the `id_group_teacher` field in the `teachers` table. When the dashboard loads, the JSP calls `base.concatenarInfoGrupo(per.getId_group_teacher())` to build the group label shown under **Datos Académicos** on the profile card. The dashboard also displays:
+
+- **Nombre completo** — assembled via `base.concatenarDatosProfesor(per.getId_teacher())`
+- **Nombre de Usuario** — `per.getNom_user()`
+- **Número de teléfono** — `per.getTelefono_teacher()`
+- **Rango** — always `PROFESOR` for this portal
+- **Grupo Asignado** — the concatenated group label from `concatenarInfoGrupo`
+- **Salón** — `per.getClassroom()`, stored in the session as `classroom` for report generation
+
+Several session attributes are also written on each dashboard load for use throughout the rest of the session:
+
+| Atributo de sesión | Valor |
+|---|---|
+| `gruposId` | `per.getId_teacher()` — used to query grades by group |
+| `rango` | `per.getRango()` — role guard throughout the app |
+| `userId` | `per.getId_user()` |
+| `modificar` | `per.getId_user()` — targets the correct record in update forms |
+| `rangoModificar` | `per.getRango()` |
+| `classroom` | `per.getClassroom()` — passed as a query param for JasperReports |
+
+If `id_group_teacher` is `NULL`, the group label will appear empty in the profile. Contact the administrator to be assigned to a group.
+
+<Note>
+  Teachers cannot create or delete students, groups, or other teachers. Those operations are reserved for the Administrator role.
+</Note>

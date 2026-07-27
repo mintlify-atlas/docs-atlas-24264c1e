@@ -1,0 +1,121 @@
+{
+  "projectType": "saas",
+  "projectName": "Taller de Inglés UAEMEx Ecatepec",
+  "projectDescription": "A Java EE web application for managing the English Workshop for children and teenagers at Centro Universitario UAEM Ecatepec, covering student enrollment, teacher assignments, grade tracking, payment monitoring, and PDF/Excel report generation.",
+  "theme": "almond",
+  "primaryColor": "#1a3a6b",
+  "lightColor": "#3a6ec4",
+  "darkColor": "#0d1f3c",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Overview",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Installation & Configuration",
+            "pages": [
+              "installation/requirements",
+              "installation/database-setup",
+              "installation/deployment"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "User Guides",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "guides/authentication",
+              "guides/session-management"
+            ]
+          },
+          {
+            "group": "Administrator",
+            "pages": [
+              "guides/admin/dashboard",
+              "guides/admin/managing-students",
+              "guides/admin/managing-teachers",
+              "guides/admin/managing-groups"
+            ]
+          },
+          {
+            "group": "Teacher",
+            "pages": [
+              "guides/teacher/dashboard",
+              "guides/teacher/grades"
+            ]
+          },
+          {
+            "group": "Student",
+            "pages": [
+              "guides/student/dashboard",
+              "guides/student/payments"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Technical Reference",
+        "groups": [
+          {
+            "group": "Data Model",
+            "pages": [
+              "reference/data-model",
+              "reference/database-operations"
+            ]
+          },
+          {
+            "group": "Servlets & Controllers",
+            "pages": [
+              "reference/servlets",
+              "reference/reports",
+              "reference/backup"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Role-based access control with three user roles: Administrator, Teacher, and Student",
+    "Student enrollment with auto-generated usernames and SHA-256 hashed passwords",
+    "Group management with level (Basic/Intermediate/Advanced) and category (Children/Teens) classification",
+    "Grade tracking with first partial, second partial, and final average scores",
+    "Monthly payment tracking across up to 7 installments per semester period",
+    "PDF report generation using JasperReports for student rosters, teacher logs, grade lists, and payment summaries",
+    "Excel backup export using Apache POI with formatted spreadsheets for all entities",
+    "MySQL database backup via mysqldump integration",
+    "Payment calendar with semester period switching (Period A / Period B)",
+    "Session management with 30-minute timeout and expiration handling"
+  ],
+  "publicApiSurface": [
+    "POST /addAdmin — Register a new administrator",
+    "POST /addGroup — Create a new student group",
+    "POST /addStudent — Enroll a new student",
+    "POST /addTeacher — Register a new teacher",
+    "GET|POST /loginAdmin — Administrator login",
+    "GET|POST /loginStudent — Student login",
+    "GET|POST /loginTeacher — Teacher login",
+    "GET /cerrarSesion — End user session",
+    "POST /deleteInformation — Delete a record (user/student/teacher/group)",
+    "POST /registerStudent — Student self-registration",
+    "GET /reportesServlet — Generate PDF reports (student roster, teacher log, grade list, payment list)",
+    "POST /updateGrade — Update student grades",
+    "POST /updateInfo — Update personal information",
+    "POST /updatePay — Update payment tracking record",
+    "POST /updateSchedule — Update payment calendar entry",
+    "POST /updateUser — Update user credentials",
+    "GET /backupServlet — Export Excel/SQL backup of all data",
+    "POST /updatePeriodo — Switch active semester period (A/B)"
+  ]
+}

@@ -1,0 +1,107 @@
+---
+title: "Enroll, edit, and remove students in TEI"
+sidebarTitle: "Students"
+description: "Administrators can enroll new students via the add form, edit personal data, reassign groups, and delete student records along with their linked payment and grade entries."
+---
+
+Student management covers the full lifecycle — enrollment, profile updates, group assignment, and deletion. All student records are stored in the `students` table, linked to `users`, `report`, and `payment` tables. The student list is accessible at `/view/listas/listaAlumnos.jsp` and displays each student's full name, primary phone number, whether they leave unaccompanied (`¿Sale solo?`), and their login username.
+
+## Inscribir un alumno
+
+<Steps>
+  <Step title="Navigate to Agregar Alumno">
+    From the admin dashboard or the student list view, click the **Agregar Alumno** button (user-plus icon) at the top of the list. This navigates to `/view/add/agregarInformacion.jsp?add=1`.
+  </Step>
+  <Step title="Fill the enrollment form">
+    Complete all required fields:
+    - **Apellido Paterno** — first surname
+    - **Apellido Materno** — second surname
+    - **Nombre** — given name(s)
+    - **Fecha de Nacimiento** — birth date in `YYYY-MM-DD` format
+    - **Teléfono** — contact phone number
+    - **Email** — contact email address
+    - **¿Sale solo?** — `SI` (1) or `NO` (0) — indicates whether the student leaves school unaccompanied
+    - **Contraseña** — must be entered twice to confirm
+  </Step>
+  <Step title="Submit the form">
+    The form submits via `POST` to the `addStudent` servlet (`/tallerDeInglesUAEM/addStudent`), which performs the following operations:
+    - Converts all name fields to uppercase
+    - Auto-generates a username from the name and birthdate (see [Nombre de usuario generado](#nombre-de-usuario-generado))
+    - Hashes the password with **SHA-256** before storage
+    - Checks the `students` table for a duplicate username — if found, redirects back to the list with a warning
+    - Creates a new record in `users` (role: `ESTUDIANTE`)
+    - Creates a linked record in `payment` (initialized with all months set to `false`)
+    - Creates a linked record in `report` (initialized with grades `0.0`)
+    - Creates the final record in `students` with all foreign keys wired together
+  </Step>
+  <Step title="Confirmation">
+    On success, the servlet redirects to the student list at `/view/listas/listaAlumnos.jsp` and a SweetAlert2 pop-up displays the generated username and a success message. If passwords did not match, the form reloads with an error notice.
+  </Step>
+</Steps>
+
+## Nombre de usuario generado
+
+The username is constructed automatically from the student's names and birthdate. No manual entry is required or accepted.
+
+```
+Format: [AP1][AP2][AM1][N1][N2][N3][YY][MM][DD]
+
+Where:
+  AP1, AP2 = first two letters of apellido paterno (uppercased)
+  AM1      = first letter of apellido materno (uppercased)
+  N1,N2,N3 = first three letters of nombre (uppercased)
+  YY       = last two digits of birth year
+  MM       = two-digit birth month
+  DD       = two-digit birth day
+
+Ejemplo: MORALES + AVALOS + LUIS + 1999-01-15 → MOAVAL990115
+```
+
+All letters are uppercased. This username becomes the student's login credential and is displayed in the student list. If a student with the same generated username already exists in the database, registration is blocked and the administrator is notified.
+
+## Editar información de alumno
+
+Two separate update operations exist to maintain a clear separation between personal data and security credentials:
+
+- **Información personal** (`POST /tallerDeInglesUAEM/updateInfo`): Updates personal data including name fields, phone numbers, email, birthdate, `¿Sale solo?` flag, and group assignment (`id_teacher_student`). The form is located at `/view/update/actualizarInformacion.jsp` and is accessible from the edit icon (<i className="fa-solid fa-pen-clip" />) in the student list row.
+
+- **Credenciales de acceso** (`POST /tallerDeInglesUAEM/updateUser`): Updates the username and password stored in the `users` table. The new password is re-hashed with SHA-256 before being saved. The form is located at `/view/update/actualizarUsuario.jsp` and is accessible from the key icon (<i className="fa-solid fa-key" />) in the student list row. Both password fields must match or the update is rejected.
+
+After a successful update, the administrator is redirected to the student list. The DataTables search bar is automatically pre-populated with the updated student's full name so the record is easy to locate.
+
+## Eliminar un alumno
+
+Deletion is triggered by submitting the delete form in the student list row, which posts to `POST /tallerDeInglesUAEM/deleteInformation` with parameters `rango=s`, the student's `id`, and their associated `user` id.
+
+The servlet performs a cascade delete in the following order:
+
+<Steps>
+  <Step title="Eliminar registro de alumno">
+    Calls `bd.eliminarAlumno(id_student)` — removes the row from the `students` table.
+  </Step>
+  <Step title="Eliminar lista de pago">
+    Calls `bd.eliminarListaDePago(id_student)` — removes all monthly payment records linked to the student.
+  </Step>
+  <Step title="Eliminar lista de calificaciones">
+    Calls `bd.eliminarListaCalificaciones(id_student)` — removes the grade report record linked to the student.
+  </Step>
+  <Step title="Eliminar usuario">
+    Calls `bd.eliminarUsuario(id_user)` — removes the login record from the `users` table.
+  </Step>
+</Steps>
+
+<Warning>
+  Deleting a student permanently removes all their grades, payment records, and login credentials. This action cannot be undone.
+</Warning>
+
+## Asignación a grupos
+
+Students are not assigned directly to a group entity — instead, they are assigned to a **teacher** via the foreign key `id_teacher_student`. Since each teacher is linked to a group, a student's group membership is determined implicitly by their teacher assignment.
+
+To reassign a student to a different group:
+
+1. Open the student's edit form via the pen icon in the list.
+2. Select a different teacher from the **Profesor asignado** dropdown.
+3. Submit the form — the `updateInfo` servlet updates only the `id_teacher_student` field on the `students` record via `base.actualizarEstudiante(student)`.
+
+No other student data is affected by a group reassignment.

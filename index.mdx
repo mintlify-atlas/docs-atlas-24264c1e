@@ -1,20 +1,82 @@
 ---
-title: "Introduction"
-description: "Welcome to your project"
+title: "Taller de Inglés UAEMEx Ecatepec"
+sidebarTitle: "Home"
+description: "Sistema de gestión académica del Taller de Inglés para Niños y Adolescentes del Centro Universitario UAEM Ecatepec."
 ---
 
-Write a short description of your product here. What it does, who it's for, and what they can accomplish with it.
+El **Taller de Inglés para Niños y Adolescentes (TEI)** es una dependencia académica del Centro Universitario UAEM Ecatepec que ofrece enseñanza del idioma inglés a estudiantes de 8 a 15 años. Este sistema web centraliza la gestión de alumnos, profesores, calificaciones, pagos y reportes, reemplazando el manejo manual de información académica.
 
-<Tip>
-  Ready to make this your own? Start by editing this page. Update your `docs.json` file to customize your site. Then fill out the [Quickstart](/quickstart) page.
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Introducción" icon="book-open" href="/introduction">
+    Conoce el propósito del sistema, sus roles de usuario y las funcionalidades principales.
+  </Card>
+  <Card title="Inicio Rápido" icon="rocket" href="/quickstart">
+    Levanta el sistema localmente en pocos pasos: clona, configura la base de datos y despliega.
+  </Card>
+  <Card title="Arquitectura" icon="sitemap" href="/architecture">
+    Explora la estructura MVC, las capas del sistema y las tecnologías utilizadas.
+  </Card>
+  <Card title="Instalación" icon="gear" href="/installation/requirements">
+    Requisitos del sistema, configuración de la base de datos y despliegue en GlassFish.
+  </Card>
+</CardGroup>
 
-<Card title="Quickstart" icon="rocket" href="/quickstart">
-  This card links to the quickstart page in your project.
-</Card>
-<Card title="Components" icon="puzzle-piece" href="https://mintlify.com/docs/components">
-  Add cards, callouts, steps, tabs, and more to design and structure your pages.
-</Card>
-<Card title="Settings" icon="gear" href="https://mintlify.com/docs/organize/settings">
-  Set your site name, branding, and navigation in the `docs.json` file.
-</Card>
+## Guías por Rol de Usuario
+
+El sistema soporta tres roles distintos, cada uno con su propio portal y funcionalidades.
+
+<CardGroup cols={3}>
+  <Card title="Administrador" icon="user-shield" href="/guides/admin/dashboard">
+    Gestión completa de alumnos, profesores, grupos y reportes del taller.
+  </Card>
+  <Card title="Profesor" icon="chalkboard-teacher" href="/guides/teacher/dashboard">
+    Consulta de grupos asignados y registro de calificaciones por parcial.
+  </Card>
+  <Card title="Alumno" icon="graduation-cap" href="/guides/student/dashboard">
+    Acceso al perfil personal y seguimiento del estado de pagos del semestre.
+  </Card>
+</CardGroup>
+
+## Referencia Técnica
+
+<CardGroup cols={2}>
+  <Card title="Modelo de Datos" icon="database" href="/reference/data-model">
+    Tablas de la base de datos MySQL, relaciones y campos de cada entidad.
+  </Card>
+  <Card title="Servlets y Controladores" icon="server" href="/reference/servlets">
+    Referencia completa de todos los servlets Jakarta EE: rutas, parámetros y comportamiento.
+  </Card>
+  <Card title="Generación de Reportes" icon="file-pdf" href="/reference/reports">
+    Reportes PDF con JasperReports: bitácoras, calificaciones y seguimiento de pagos.
+  </Card>
+  <Card title="Respaldo de Datos" icon="download" href="/reference/backup">
+    Exportación de respaldos en Excel (Apache POI) y volcado SQL con mysqldump.
+  </Card>
+</CardGroup>
+
+## Inicio Rápido
+
+<Steps>
+  <Step title="Clonar el repositorio">
+    ```bash
+    git clone https://github.com/LuisAMoralesA/tallerIngles-UAEMEcatepec.git
+    cd tallerIngles-UAEMEcatepec
+    ```
+  </Step>
+  <Step title="Configurar la base de datos MySQL">
+    Crea la base de datos `tallerdeingles` y el usuario `adminTallerIngles`. Consulta la [guía de base de datos](/installation/database-setup) para el esquema completo.
+  </Step>
+  <Step title="Compilar y empaquetar">
+    ```bash
+    mvn clean package
+    ```
+    Esto genera `target/tallerDeInglesUAEM.war`.
+  </Step>
+  <Step title="Desplegar en GlassFish">
+    Copia el WAR al directorio `autodeploy` de GlassFish o usa la consola de administración. El sistema estará disponible en `http://localhost:8080/tallerDeInglesUAEM/`.
+  </Step>
+</Steps>
+
+<Note>
+  El sistema requiere Java 11+, GlassFish 7 (Jakarta EE 10) y MySQL 8. Consulta los [requisitos completos](/installation/requirements) antes de comenzar.
+</Note>

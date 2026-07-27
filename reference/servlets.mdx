@@ -1,0 +1,365 @@
+---
+title: "Servlet reference: all HTTP endpoints in TEI"
+sidebarTitle: "Servlets"
+description: "Complete reference for all 18 Jakarta Servlet endpoints in the TEI system: URL patterns, HTTP methods, request parameters, and redirect targets."
+---
+
+The TEI system exposes **18 Jakarta EE servlets** annotated with `@WebServlet`. All servlets live in the `controller.servlet` package. The application context root is `/tallerDeInglesUAEM/`; every URL below is relative to that context root, as declared in `Constantes.Servlets`.
+
+Most servlets implement a unified `processRequest` method that is delegated to by both `doGet` and `doPost`, so they accept either HTTP method unless noted otherwise.
+
+---
+
+## Autenticación
+
+### `POST /loginAdmin`
+
+Authenticates a school administrator.
+
+```
+POST /tallerDeInglesUAEM/loginAdmin
+```
+
+**Parámetros de formulario**
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `user` | String | Nombre de usuario |
+| `pass` | String | Contraseña en texto plano (será hasheada internamente) |
+| `submit` | String | La presencia de este campo activa la validación de credenciales |
+
+Calls `BaseDatos.inicioSesion(user, pass, "ADMINISTRADOR")`. On `ACCESO_CONCEDIDO` (`3`), stores session attributes `sesionIniciada`, `rango`, and `id_user`, then redirects to `view/principal/menuAdministrador.jsp`. On failure, redirects back to the login page with an error message in the session.
+
+---
+
+### `POST /loginTeacher`
+
+Authenticates a teacher. Identical flow to `/loginAdmin` but uses role `"MAESTRO"` and redirects to `view/principal/menuProfesor.jsp`.
+
+```
+POST /tallerDeInglesUAEM/loginTeacher
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `user` | String | Nombre de usuario |
+| `pass` | String | Contraseña en texto plano |
+| `submit` | String | Activa la validación |
+
+---
+
+### `POST /loginStudent`
+
+Authenticates a student. Uses role `"ESTUDIANTE"` and redirects to `view/principal/menuAlumno.jsp`.
+
+```
+POST /tallerDeInglesUAEM/loginStudent
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `user` | String | Nombre de usuario |
+| `pass` | String | Contraseña en texto plano |
+| `submit` | String | Activa la validación |
+
+---
+
+### `GET /cerrarSesion`
+
+Invalidates the current HTTP session and redirects the browser to the public index page (`/tallerDeInglesUAEM/index.html`). No request parameters required.
+
+---
+
+## Alta de registros
+
+### `POST /addAdmin`
+
+Registers a new administrator. Generates the username deterministically from the supplied personal data, hashes the password with SHA-256, inserts a `users` row, and then inserts an `admin_school` row.
+
+```
+POST /tallerDeInglesUAEM/addAdmin
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `apaterno` | String | Apellido paterno (convertido a mayúsculas) |
+| `amaterno` | String | Apellido materno (convertido a mayúsculas) |
+| `name` | String | Nombre(s) de pila (convertido a mayúsculas) |
+| `birthdate` | String | Fecha de nacimiento en formato `YYYY-MM-DD` |
+| `phone` | String | Número de teléfono |
+| `email` | String | Correo electrónico |
+| `password1` | String | Contraseña (primera entrada) |
+| `password2` | String | Confirmación de contraseña |
+
+Redirects to `view/listas/listaAdministradores.jsp` on success, or back to the form on password mismatch.
+
+---
+
+### `POST /addTeacher`
+
+Registers a new teacher. Generates username, hashes password, inserts `users`, then inserts `teachers`. If `id_group` is `0`, `id_group_teacher` is stored as `NULL`.
+
+```
+POST /tallerDeInglesUAEM/addTeacher
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `apaterno` | String | Apellido paterno |
+| `amaterno` | String | Apellido materno |
+| `name` | String | Nombre(s) de pila |
+| `birthdate` | String | Fecha de nacimiento (`YYYY-MM-DD`) |
+| `phone` | String | Número de teléfono |
+| `email` | String | Correo electrónico |
+| `status` | String | Estado: `Activo` o `Inactivo` |
+| `grupo` | int | ID del grupo asignado (`0` = sin grupo) |
+| `classroom` | String | Identificador del salón |
+| `password1` | String | Contraseña (primera entrada) |
+| `password2` | String | Confirmación de contraseña |
+
+Redirects to `view/listas/listaProfesores.jsp` on success.
+
+---
+
+### `POST /addStudent`
+
+Enrolls a new student. This servlet performs a **multi-step atomic sequence**: (1) generate username, (2) check for duplicates, (3) insert `users`, (4) insert `payment` (all flags `false`) and capture generated `id_payment`, (5) insert `report` (all grades `0.0`) and capture generated `id_report`, (6) insert `students` linking both IDs. The student starts unassigned to any teacher/group (`id_teacher_student = NULL`).
+
+```
+POST /tallerDeInglesUAEM/addStudent
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `apaterno` | String | Apellido paterno |
+| `amaterno` | String | Apellido materno |
+| `name` | String | Nombre(s) de pila |
+| `birthdate` | String | Fecha de nacimiento (`YYYY-MM-DD`) |
+| `phone` | String | Teléfono (usado para `telefono1_student` y `telefono2_student`) |
+| `email` | String | Correo electrónico |
+| `sale_solo` | String | `"1"` si sale solo del plantel, `"0"` si no |
+| `password1` | String | Contraseña (primera entrada) |
+| `password2` | String | Confirmación de contraseña |
+
+**Generación de username:** `apaterno[0..1] + amaterno[0] + name[0..2] + YY + MM + DD` (from `birthdate`). If that username already exists, the servlet redirects back with a warning rather than creating a duplicate.
+
+Redirects to `view/listas/listaAlumnos.jsp` on success.
+
+---
+
+### `POST /addGroup`
+
+Creates a new class group.
+
+```
+POST /tallerDeInglesUAEM/addGroup
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `id_grade` | int | ID del nivel académico (`grade.id_grade`) |
+| `level_group` | int | Número de nivel dentro del grado |
+| `id_category_group` | int | ID de la categoría (`category.id_category`) |
+| `classroom_group` | String | Identificador del salón |
+
+Redirects to `view/listas/listaGrupos.jsp`.
+
+---
+
+### `POST /registerStudent`
+
+Student self-registration endpoint (limited use — not exposed in the main admin UI). Accepts the same parameters as `/addStudent`. Used for public enrollment flows.
+
+---
+
+## Actualización
+
+### `POST /updateInfo`
+
+Updates personal data for a student, teacher, or administrator. The `rango` parameter controls which entity is updated and which `actualizar*` method is called.
+
+```
+POST /tallerDeInglesUAEM/updateInfo
+```
+
+**Parámetros comunes**
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `rango` | String | Tipo de entidad: `ESTUDIANTE`, `ADMINISTRADOR`, o `PROFESOR` |
+| `idprincipal` | int | PK de la entidad en su tabla propia (`id_student`, `id_admin`, o `id_teacher`) |
+| `iduser` | int | FK a `users.id_user` |
+| `apaterno` | String | Apellido paterno |
+| `amaterno` | String | Apellido materno |
+| `nombre` | String | Nombre(s) de pila |
+| `birthdate` | String | Fecha de nacimiento (`YYYY-MM-DD`) |
+| `phone1` | String | Teléfono principal |
+| `email` | String | Correo electrónico |
+
+**Parámetros adicionales por tipo**
+
+| `rango` | Parámetros extra |
+|---|---|
+| `ESTUDIANTE` | `idprofesor` (int), `phone2` (String), `sale_solo` (`"1"`/`"0"`) |
+| `PROFESOR` | `status` (String), `grupo` (int), `classroom` (String) |
+| `ADMINISTRADOR` | *(ninguno adicional)* |
+
+Redirects to the appropriate list view (admin-initiated) or dashboard (self-update) depending on the `rango` stored in the current session.
+
+---
+
+### `POST /updateUser`
+
+Updates access credentials (`nom_user`, `password`, `rango`) in the `users` table.
+
+```
+POST /tallerDeInglesUAEM/updateUser
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `id_user` | int | Identificador del usuario a actualizar |
+| `nom_user` | String | Nuevo nombre de usuario |
+| `password1` | String | Nueva contraseña |
+| `password2` | String | Confirmación de nueva contraseña |
+| `rango` | String | Nuevo rol del usuario |
+
+---
+
+### `POST /updateGrade`
+
+Updates a student's grade record. Automatically calculates `avg_report = (firstPartial + secondPartial) / 2`.
+
+```
+POST /tallerDeInglesUAEM/updateGrade
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `idGrade` | int | `report.id_report` del registro a actualizar |
+| `firstPartial` | double | Calificación del primer parcial |
+| `secondPartial` | double | Calificación del segundo parcial |
+| `nombreCompleto` | String | Nombre completo del alumno (para mensaje de confirmación) |
+
+Redirects to `listaAlumnos.jsp` if the session role is `ADMINISTRADOR`, or to `asignarCalificaciones.jsp` if is `MAESTRO`.
+
+---
+
+### `POST /updatePay`
+
+Updates the payment tracking record for a student. Boolean flags are read from form parameters using null-safe comparison (`"1".equals(...)`).
+
+```
+POST /tallerDeInglesUAEM/updatePay
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `idPayment` | int | `payment.id_payment` del registro a actualizar |
+| `mensualidadInscripcion` | String | `"1"` si pagada, ausente si no |
+| `mensualidad1` … `mensualidad7` | String | `"1"` si cada mensualidad está pagada, ausente si no |
+| `status` | int | Nuevo `payment_status.id_status` |
+| `nombreCompleto` | String | Nombre completo del alumno (para mensaje de confirmación) |
+
+Redirects to `view/listas/listaAlumnos.jsp`.
+
+---
+
+### `POST /updateSchedule`
+
+Updates a single entry in the payment calendar (`pay_simbology`).
+
+```
+POST /tallerDeInglesUAEM/updateSchedule
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `id_pay` | int | ID de la entrada del calendario |
+| `month` | String | Nombre del mes |
+| `description_pay` | String | Descripción del concepto |
+| `cost_pay` | double | Costo en pesos |
+| `period_pay` | String | `Periodo A`, `Periodo B`, o `Cualquiera` |
+| `deadline_pay` | String | Fecha límite (`YYYY-MM-DD`) o vacío para `NULL` |
+
+Redirects to `view/pagos/calendario.jsp`.
+
+---
+
+### `POST /updatePeriodo`
+
+Switches the active semester for all non-universal calendar entries. Reads the current period from the first calendar entry and calls `actualizarCalendario(String periodoActual)`.
+
+```
+POST /tallerDeInglesUAEM/updatePeriodo
+```
+
+No additional request parameters required — the current period is determined server-side. If the current value is `Periodo A`, all affected rows are switched to `Periodo B`, and vice versa.
+
+---
+
+## Eliminación
+
+### `POST /deleteInformation`
+
+Deletes an entity by type code and ID, automatically running the appropriate devinculación steps before the actual `DELETE`.
+
+```
+POST /tallerDeInglesUAEM/deleteInformation
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `rango` | String | Tipo de entidad: `"a"` (admin), `"s"` (student), `"t"` (teacher), `"g"` (group) |
+| `id` | int | PK de la entidad en su tabla propia |
+| `user` | int | `users.id_user` asociado — requerido para `"a"`, `"s"`, y `"t"` |
+
+Deletion sequences enforced by this servlet:
+
+| `rango` | Secuencia |
+|---|---|
+| `"a"` | `eliminarAdministrador` → `eliminarUsuario` |
+| `"s"` | `eliminarAlumno` → `eliminarListaDePago` → `eliminarListaCalificaciones` → `eliminarUsuario` |
+| `"t"` | `desvincularAlumnos` → `eliminarTeacher` → `eliminarUsuario` |
+| `"g"` | `desvincularProfesores` → `eliminarGrupo` |
+
+Redirects to the list view corresponding to the deleted entity type.
+
+---
+
+## Documentos y respaldo
+
+### `GET /reportesServlet`
+
+Generates and streams a PDF report using JasperReports. The type of report is determined by which query parameter is present in the request. Resolves the `.jasper` file path via `getServletContext().getRealPath(...)`.
+
+```
+GET /tallerDeInglesUAEM/reportesServlet
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `Attendance` | int | `teachers.id_teacher` — genera **Bitácora de Alumnos** del grupo |
+| `Payment` | int | `teachers.id_teacher` — genera **Lista de Seguimiento de Pago** |
+| `Grade` | int | `teachers.id_teacher` — genera **Lista de Calificaciones** |
+| *(ninguno)* | — | Genera **Bitácora de Profesores** (sin parámetro requerido) |
+| `c` | String | Identificador del salón — requerido para `Attendance` y `Payment` |
+
+The `nombre_grupo`, `nombre_profesor`, and `periodoActual` values are assembled server-side from `BaseDatos` queries. See [`reference/reports`](/reference/reports) for full method-level documentation.
+
+---
+
+### `GET /backupServlet`
+
+Exports a data backup as a downloadable file. The format is determined by the `type` query parameter. The filename is auto-generated with the current year and active period (e.g. `Respaldo_TEI_2025_Periodo_A.xlsx`).
+
+```
+GET /tallerDeInglesUAEM/backupServlet
+```
+
+| Parámetro | Valor | `Content-Type` | Descripción |
+|---|---|---|---|
+| `type` | `excel` | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | Workbook `.xlsx` con 4 hojas |
+| `type` | `sql` | `text/sql` | Dump completo via `mysqldump` |
+
+Both formats are streamed via `Content-Disposition: attachment` and written directly to `response.getOutputStream()`. See [`reference/backup`](/reference/backup) for full implementation details.

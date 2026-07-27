@@ -1,0 +1,166 @@
+---
+title: "Data backup: Excel export and SQL dump"
+sidebarTitle: "Backup"
+description: "The TEI offers two backup formats: a formatted Excel workbook (Apache POI 5.2.3) with four sheets, and a full MySQL dump via mysqldump. Both are triggered from the admin interface."
+---
+
+The `Respaldo` class (package `controller`) implements two independent backup strategies: an **Excel workbook export** via Apache POI and a **SQL dump** via `mysqldump`. Both are triggered from the administrator interface and delivered as browser file downloads — no intermediate files are written to the server's filesystem. The download filename includes the current year and active semester (e.g. `Respaldo_TEI_2025_Periodo_A.xlsx`).
+
+---
+
+## Respaldo en Excel
+
+### `iniciarRespaldo(OutputStream flujoSalida, String rutaImagen)`
+
+Creates an `.xlsx` workbook with four sheets, writes all data collected from `BaseDatos`, and streams the result to `flujoSalida` (the HTTP response output stream).
+
+```java Respaldo.java
+public void iniciarRespaldo(OutputStream flujoSalida, String rutaImagen)
+```
+
+| Parámetro | Descripción |
+|---|---|
+| `flujoSalida` | `OutputStream` obtenido de `response.getOutputStream()` |
+| `rutaImagen` | Ruta absoluta al archivo `Logo_Taller2_BN.png` dentro del directorio `Images/` |
+
+### Hojas del workbook
+
+| Hoja | Contenido |
+|---|---|
+| `Alumnos` | Nombre completo, nombre de usuario, teléfono principal, correo electrónico, ¿sale solo? (SI/NO), fecha de nacimiento, grupo asignado, profesor asignado |
+| `Profesores` | Nombre completo, nombre de usuario, teléfono, correo electrónico, fecha de nacimiento, grupo asignado |
+| `Calificaciones` | Nombre completo, nombre de usuario, 1er parcial, 2do parcial, calificación final |
+| `Seguimiento de Pago` | Nombre completo, pago de inscripción, mensualidades 1–7 (SI/NO cada una), estatus del alumno |
+
+Data is sourced through `BaseDatos.obtenerDatosAlumnos()`, `BaseDatos.obtenerDatosProfesores()`, `Respaldo.obtenerCalificaciones()` (JOIN `students + users + report`), and `Respaldo.obtenerSeguimientoPago()` (JOIN `students + payment + payment_status`).
+
+---
+
+## Disparar respaldo Excel
+
+Access the Excel export from the administrator interface or directly via:
+
+```
+GET /tallerDeInglesUAEM/backupServlet?type=excel
+```
+
+The `backupServlet` sets the following response headers before writing:
+
+```java backupServlet.java
+response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+response.setHeader("Content-Disposition", "attachment; filename=\"" + nombreExcel + "\"");
+```
+
+The workbook is then built by `Respaldo.iniciarRespaldo(response.getOutputStream(), imagenLogo)` and written directly to the browser. The TEI logo path is resolved via `getServletContext().getRealPath("/Images/")` and appended with `Logo_Taller2_BN.png`.
+
+---
+
+## Respaldo SQL (mysqldump)
+
+### `iniciarRespaldoSQL(OutputStream flujoSalida, String rutaEjecutable)`
+
+Spawns a `mysqldump` child process and pipes its stdout directly to `flujoSalida`. The dump includes all tables and stored routines (`-R` flag).
+
+```java Respaldo.java
+public void iniciarRespaldoSQL(OutputStream flujoSalida, String rutaEjecutable)
+```
+
+| Parámetro | Descripción |
+|---|---|
+| `flujoSalida` | `OutputStream` obtenido de `response.getOutputStream()` |
+| `rutaEjecutable` | Ruta absoluta al binario `mysqldump` (por defecto `WEB-INF/mysqldump.exe`) |
+
+The exact command array constructed at runtime:
+
+```java Respaldo.java
+String[] comando = {
+    rutaEjecutable,                                          // e.g. /opt/app/WEB-INF/mysqldump.exe
+    "--opt",
+    "--user="    + BaseDatos.configuracionBD.NOMBRE_USUARIO, // adminTallerIngles
+    "--password="+ BaseDatos.configuracionBD.PASSWORD_USUARIO,// UAEMEX_2026
+    "--databases",
+    BaseDatos.configuracionBD.NOMBRE_BASE_DATOS,             // tallerdeingles
+    "-R"                                                     // include stored routines
+};
+```
+
+The output stream of the `mysqldump` process is read in 4 KB chunks and written directly to `flujoSalida`:
+
+```java Respaldo.java
+InputStream is = creacion.getInputStream();
+byte[] buffer = new byte[4096];
+int bytesLeidos;
+while ((bytesLeidos = is.read(buffer)) != -1) {
+    flujoSalida.write(buffer, 0, bytesLeidos);
+}
+flujoSalida.flush();
+```
+
+### Disparar respaldo SQL
+
+```
+GET /tallerDeInglesUAEM/backupServlet?type=sql
+```
+
+Response headers set by the servlet:
+
+```java backupServlet.java
+response.setContentType("text/sql");
+response.setHeader("Content-Disposition", "attachment; filename=\"" + nombreSQL + "\"");
+```
+
+The `mysqldump` executable path is resolved via `getServletContext().getRealPath("/WEB-INF/mysqldump.exe")`. If `getRealPath` returns `null`, the fallback is `Constantes.ARCHIVO_MYSQLDUMP` (`/tallerDeInglesUAEM/WEB-INF/mysqldump.exe`).
+
+---
+
+## mysqldump en Linux/macOS
+
+<Warning>
+  The repository ships a **Windows** `mysqldump.exe` at `src/main/webapp/WEB-INF/mysqldump.exe`. On Linux or macOS this binary will not execute. To enable SQL backup on non-Windows servers:
+  1. Locate the `mysqldump` binary for your platform (e.g. `/usr/bin/mysqldump` on most Linux distributions).
+  2. Replace `src/main/webapp/WEB-INF/mysqldump.exe` with the platform-appropriate binary, **or** update the constant `Constantes.ARCHIVO_MYSQLDUMP` to point to the correct absolute path.
+  3. Redeploy the application.
+
+  Alternatively, configure the server's `PATH` so that `mysqldump` is discoverable, and change `rutaEjecutable` to simply `"mysqldump"`.
+</Warning>
+
+---
+
+## Formato del respaldo Excel
+
+Each of the four sheets is built with a consistent visual style applied by helper methods in `Respaldo`:
+
+| Elemento | Especificación |
+|---|---|
+| **Logo TEI** | Imagen PNG (`Logo_Taller2_BN.png`) insertada en la esquina superior izquierda de cada hoja, abarcando las filas 1–6 |
+| **Fila de título** | Fila 1 — texto `"Taller de Inglés para Niños y Adolescentes"` con estilo de encabezado; fusionada en columnas 2–5 |
+| **Fila de subtítulo** | Fila 2 — nombre de la hoja (p. ej. `"Respaldo de Alumnos del TEI"`); fusionada en columnas 2–5 |
+| **Encabezados de columna** | Fila 7 — texto en **negrita blanca sobre fondo negro**, fuente Arial 11pt, centrado y con altura de 24pt |
+| **Datos** | A partir de la fila 8 — fuente Arial 10pt, alineación izquierda para texto largo, centrado para valores cortos/fechas/booleanos, altura de 18pt |
+| **Bordes** | `BorderStyle.THIN` en color gris (`GREY_25_PERCENT`) en los cuatro lados de cada celda |
+| **Ancho de columna** | `autoSizeColumn()` seguido de `+1200` unidades de relleno adicional para evitar texto truncado |
+
+### Estilos aplicados
+
+```java Respaldo.java
+// Encabezado: fuente Arial 11pt, negrita, blanca sobre fondo negro
+Font headerFont = hojaCalculo.createFont();
+headerFont.setFontName("Arial");
+headerFont.setBold(true);
+headerFont.setColor(IndexedColors.WHITE.getIndex());
+headerFont.setFontHeightInPoints((short) 11);
+
+CellStyle headerStyle = hojaCalculo.createCellStyle();
+headerStyle.setFillForegroundColor(IndexedColors.BLACK.getIndex());
+headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+headerStyle.setAlignment(HorizontalAlignment.CENTER);
+
+// Datos: fuente Arial 10pt normal, sin relleno
+Font dataFont = hojaCalculo.createFont();
+dataFont.setFontName("Arial");
+dataFont.setFontHeightInPoints((short) 10);
+```
+
+<Tip>
+  Run a backup before making bulk changes to student or payment data. The **Excel file** provides a human-readable snapshot suitable for review or sharing with non-technical staff. The **SQL dump** allows full database restoration via `mysql -u adminTallerIngles -p tallerdeingles < respaldo.sql` and should be kept in a secure location, as it contains hashed passwords and all operational data.
+</Tip>

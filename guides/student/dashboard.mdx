@@ -1,0 +1,75 @@
+---
+title: "Student portal: access profile and payment status"
+sidebarTitle: "Dashboard"
+description: "Students log in to view their personal profile, see their assigned teacher and group, check grade reports, and track their payment status for the current semester."
+---
+
+After authenticating at `/view/login/loginAlumno.jsp`, the student is directed to `/view/principal/menuAlumno.jsp`. The student portal is read-focused — students view their information but do not make changes themselves through administrative actions. The page title is set by `Constantes.Titulos.TITULO_MENU_ALUMNO` ("Control Escolar | Alumnos") and the session is validated on every load — expired sessions are redirected to `view/sesionExpirada.jsp`. Only users with the `ESTUDIANTE` role are permitted to access this portal.
+
+## Funciones del alumno
+
+<CardGroup cols={2}>
+  <Card title="Mi Perfil" icon="user" href="/guides/authentication">
+    Ver datos personales, grupo asignado y profesor responsable
+  </Card>
+  <Card title="Seguimiento de Pago" icon="credit-card" href="/guides/student/payments">
+    Consultar el estado de cada mensualidad del semestre actual
+  </Card>
+  <Card title="Calificaciones" icon="star" href="/guides/teacher/grades">
+    Ver calificaciones de primer parcial, segundo parcial y promedio
+  </Card>
+  <Card title="Actualizar Datos" icon="pen" href="/guides/authentication">
+    Solicitar cambio de contraseña o actualizar datos de contacto
+  </Card>
+</CardGroup>
+
+## Menú lateral del alumno
+
+The sidebar at `/view/menuLateral/menuLateralAlumnos.jsp` is included on every student-facing page. It provides direct navigation to all available sections:
+
+| Elemento de menú | Destino |
+|---|---|
+| **Cuenta** (Inicio) | `/view/principal/menuAlumno.jsp` — perfil y dashboard principal |
+| **Seguimiento** | `/view/pagos/seguimientoPago.jsp` — estado de pagos del semestre |
+| **Calificaciones** | `/view/calificaciones/vistaCalificaciones.jsp` — parciales y promedio |
+| **Actualizar Información** | `/view/update/actualizarInformacion.jsp` — edición de datos personales |
+| **Actualizar Usuario** | `/view/update/actualizarUsuario.jsp` — cambio de contraseña y credenciales |
+| **Cerrar Sesión** | Servlet `/tallerDeInglesUAEM/cerrarSesion` — invalida la sesión activa |
+
+The currently active section is highlighted with a dark green background (`rgba(44, 82, 52, 1)`) on the corresponding menu anchor.
+
+## Perfil del alumno
+
+When the dashboard loads, the JSP queries `base.obtenerDatosAlumno(usuario)` and displays the following information in the profile card:
+
+| Campo mostrado | Fuente |
+|---|---|
+| **Nombre completo** | `base.concatenarDatosAlumno(per.getId_student())` |
+| **Nombre de Usuario** | `per.getNom_user()` |
+| **Número de teléfono principal** | `per.getTelefono1_student()` |
+| **Rango** | `per.getRango()` — always `ESTUDIANTE` for this portal |
+| **Grupo Asignado** | `base.concatenarDatosGrupo(per.getId_teacher_student())` |
+| **Profesor responsable** | `base.concatenarDatosProfesor(per.getId_teacher_student())` |
+
+Several session attributes are also written on each dashboard load and used throughout the rest of the session:
+
+| Atributo de sesión | Valor |
+|---|---|
+| `pagos` | `per.getId_payment_student()` — used to load the payment tracking view |
+| `calif` | `per.getId_report_student()` — used to load the grades view |
+| `rango` | `per.getRango()` — role guard throughout the app |
+| `userId` | `per.getId_user_student()` |
+| `grupoAsignado` | concatenated group label |
+| `profesorAsignado` | concatenated teacher name |
+| `modificar` | `per.getId_user_student()` — targets the correct record in update forms |
+| `rangoModificar` | `per.getRango()` |
+
+## Registro por administrador
+
+Students cannot self-register. Enrollment is done exclusively by the administrator via `POST /tallerDeInglesUAEM/addStudent` (`Constantes.Servlets.SERVLET_AGREGAR_ALUMNO`). During enrollment the administrator provides the student's personal data and sets their initial password. The system auto-generates a username. The student then uses those credentials to log in at `/view/login/loginAlumno.jsp`.
+
+<Note>
+  If a student has not been assigned to a group, the `id_teacher_student` field will be `NULL` and the
+  group and teacher sections of the profile will appear empty. Contact the administrator to be assigned
+  to a group.
+</Note>

@@ -1,0 +1,206 @@
+---
+title: "PDF report generation with JasperReports"
+sidebarTitle: "Reports"
+description: "The TEI generates four PDF reports using JasperReports 7: student roster, teacher log, grade list, and payment tracking. Reports are streamed directly to the HTTP response."
+---
+
+The `Reportes` class (package `controller`) uses **JasperReports 7** to generate PDF documents on demand. Reports are requested through the `reportesServlet` and streamed as `application/pdf` directly to the browser — no temporary files are written to disk. Compiled `.jasper` templates are stored in `src/main/webapp/reports/`.
+
+`Reportes` implements the `ReportesStruct` interface and opens its own JDBC connection using the same `BaseDatos.configuracionBD` constants as `BaseDatos`.
+
+---
+
+## Reportes disponibles
+
+| Reporte | Archivo `.jasper` | Descripción |
+|---|---|---|
+| Bitácora de Alumnos | `BitacorasDeAlumnos.jasper` | Lista de alumnos de un grupo con nombre completo, usuario, teléfonos, email, ¿sale solo? y salón |
+| Bitácora de Profesores | `BitacoraProfesores.jasper` | Lista de todos los profesores del plantel con datos de contacto y grupo asignado |
+| Lista de Calificaciones | `ListaCalificaciones.jasper` | Calificaciones del grupo: 1er parcial, 2do parcial y promedio final |
+| Lista de Seguimiento de Pago | `ListaSeguimientoPago.jasper` | Estado de pagos por alumno: inscripción y mensualidades 1–7 |
+
+Constants for both `.jasper` (runtime) and `.jrxml` (source) paths are declared in `Constantes.Reportes`:
+
+```java Constantes.java
+public static final String DOMINIO_JASPERREPORTS = "reports/";
+
+public static final class Reportes {
+    public static final String URL_JASPER_BITACORA_PROFESORES  = DOMINIO_JASPERREPORTS + "BitacoraProfesores.jasper";
+    public static final String URL_JASPER_BITACORA_ALUMNOS     = DOMINIO_JASPERREPORTS + "BitacorasDeAlumnos.jasper";
+    public static final String URL_JASPER_LISTA_CALIFICACIONES = DOMINIO_JASPERREPORTS + "ListaCalificaciones.jasper";
+    public static final String URL_JASPER_LISTA_SEGUIMIENTO_PAGO = DOMINIO_JASPERREPORTS + "ListaSeguimientoPago.jasper";
+
+    public static final String URL_XML_BITACORA_PROFESORES     = DOMINIO_JASPERREPORTS + "BitacoraProfesores.jrxml";
+    public static final String URL_XML_BITACORA_ALUMNOS        = DOMINIO_JASPERREPORTS + "BitacorasDeAlumnos.jrxml";
+    public static final String URL_XML_LISTA_CALIFICACIONES    = DOMINIO_JASPERREPORTS + "ListaCalificaciones.jrxml";
+    public static final String URL_XML_LISTA_SEGUIMIENTO_PAGO  = DOMINIO_JASPERREPORTS + "ListaSeguimientoPago.jrxml";
+}
+```
+
+---
+
+## Cómo se generan los reportes
+
+The following steps describe the full lifecycle of a report request:
+
+1. The user clicks a report button in `/view/listas/listaDocumentos.jsp`, which sends a `GET` request to `/reportesServlet` with the appropriate query parameters (`Attendance`, `Payment`, `Grade`, or none for the teacher log).
+
+2. `reportesServlet` determines the report type from the query parameters and sets the path to the corresponding `.jasper` file using `getServletContext().getRealPath("/reports/<file>.jasper")`. Falls back to the relative `Constantes.Reportes` constant if `getRealPath` returns `null`.
+
+3. A `Reportes` instance is created — its constructor opens a JDBC connection to `tallerdeingles`.
+
+4. The servlet assembles the report parameters: `nombre_grupo` and `nombre_profesor` are built by calling `BaseDatos.concatenarDatosGrupo(id_teacher)` and `BaseDatos.concatenarDatosProfesor(id_teacher)`. The `ruta_imagenes` path is resolved to the server-side absolute path of the `Images/` directory.
+
+5. The `Reportes` method (`bitacorasDeAlumnos`, `listaCalificaciones`, `listasPagos`, or `bitacorasDeProfesores`) is called. Internally it calls `conexionBDReportes()` again to ensure a fresh connection, then populates a `Map<String, Object>` of parameters.
+
+6. `JasperFillManager.fillReport(reporteFinal, parametros, con)` merges the compiled template with live database data via the open `Connection`.
+
+7. `JRPdfExporter` writes the PDF bytes directly to `response.getOutputStream()`. The response is configured with `Content-Type: application/pdf` before the export.
+
+8. `response.getOutputStream().flush()` and `.close()` finalize the response. The JDBC connection is closed in the `finally` block.
+
+---
+
+## Método `bitacorasDeAlumnos`
+
+Generates the student roster PDF for a specific teacher's group.
+
+```java Reportes.java
+public void bitacorasDeAlumnos(
+    HttpServletResponse response,
+    String ruta,               // Absolute path to BitacorasDeAlumnos.jasper
+    String ruta_imagenes,      // Absolute path to the Images/ folder (trailing separator)
+    String nombre_grupo,       // Group name string for the report header
+    String nombre_profesor,    // Teacher full name for the report header
+    int id_teacher_student,    // teachers.id_teacher — used to filter students in the SQL query
+    String classroom           // Classroom identifier for the report header
+) throws ClassNotFoundException, InstantiationException,
+        IllegalAccessException, SQLException, JRException, IOException
+```
+
+**JasperReports parameters passed:**
+
+| Nombre | Tipo | Valor |
+|---|---|---|
+| `nombre_grupo` | `String` | Nombre del grupo |
+| `nombre_profesor` | `String` | Nombre del profesor |
+| `id_teacher_student` | `int` | ID del profesor (filtro SQL interno del reporte) |
+| `ruta_imagenes` | `String` | Ruta absoluta al directorio `Images/` |
+| `classroom` | `String` | Identificador del salón |
+
+Output filename hint: `bitacoraAlumnos.pdf`.
+
+---
+
+## Método `listaCalificaciones`
+
+Generates the grade list PDF for a teacher's group.
+
+```java Reportes.java
+public void listaCalificaciones(
+    HttpServletResponse response,
+    String ruta,               // Absolute path to ListaCalificaciones.jasper
+    String ruta_imagenes,      // Absolute path to the Images/ folder
+    String nombre_grupo,       // Group name for report header
+    String nombre_profesor,    // Teacher name for report header
+    int id_teacher,            // teachers.id_teacher — SQL filter
+    String periodoActual       // Active semester label, e.g. "2025 Periodo A"
+) throws ClassNotFoundException, InstantiationException,
+        IllegalAccessException, SQLException, JRException, IOException
+```
+
+**JasperReports parameters passed:**
+
+| Nombre | Tipo | Valor |
+|---|---|---|
+| `nombre_grupo` | `String` | Nombre del grupo |
+| `nombre_profesor` | `String` | Nombre del profesor |
+| `ruta_imagenes` | `String` | Ruta absoluta al directorio `Images/` |
+| `PeriodoActual` | `String` | Semestre activo |
+| `id_teacher` | `int` | ID del profesor (filtro SQL) |
+
+Output filename hint: `listaCalificaciones.pdf`.
+
+---
+
+## Método `listasPagos`
+
+Generates the payment tracking list PDF. This report is the most complex — it accepts variable month labels and count to render the correct number of payment columns.
+
+```java Reportes.java
+public void listasPagos(
+    HttpServletResponse response,
+    String ruta,               // Absolute path to ListaSeguimientoPago.jasper
+    String ruta_imagenes,      // Absolute path to the Images/ folder
+    String nombre_grupo,       // Group name for report header
+    String nombre_profesor,    // Teacher name for report header
+    int id_teacher,            // teachers.id_teacher — SQL filter
+    String classroom,          // Classroom identifier
+    String periodoActual,      // Active semester label
+    String numMeses,           // Total number of billing months (from BaseDatos.conteoMeses())
+    String[] listaMeses        // Ordered array of month name strings (from BaseDatos.obtenerMesesCalendario())
+) throws ClassNotFoundException, InstantiationException,
+        IllegalAccessException, SQLException, JRException, IOException
+```
+
+**JasperReports parameters passed:**
+
+| Nombre | Tipo | Valor |
+|---|---|---|
+| `nombre_grupo` | `String` | Nombre del grupo |
+| `nombre_profesor` | `String` | Nombre del profesor |
+| `classroom` | `String` | Identificador del salón |
+| `ruta_imagenes` | `String` | Ruta absoluta al directorio `Images/` |
+| `PeriodoActual` | `String` | Semestre activo |
+| `id_teacher` | `int` | ID del profesor (filtro SQL) |
+| `numMeses` | `String` | Número total de meses del semestre |
+| `listaMeses` | `String[]` | Arreglo de nombres de meses (p. ej. `["Agosto","Septiembre",…]`) |
+
+Output filename hint: `listaPagos.pdf`.
+
+---
+
+## Método `bitacorasDeProfesores`
+
+Generates the teacher log PDF. Unlike the other three reports, this one does not filter by group — it lists all teachers in the system.
+
+```java Reportes.java
+public void bitacorasDeProfesores(
+    HttpServletResponse response,
+    String ruta,               // Absolute path to BitacoraProfesores.jasper
+    String ruta_imagenes,      // Absolute path to the Images/ folder
+    String periodoActual       // Active semester label
+) throws ClassNotFoundException, InstantiationException,
+        IllegalAccessException, SQLException, JRException, IOException
+```
+
+**JasperReports parameters passed:**
+
+| Nombre | Tipo | Valor |
+|---|---|---|
+| `ruta_imagenes` | `String` | Ruta absoluta al directorio `Images/` |
+| `PeriodoActual` | `String` | Semestre activo |
+
+Output filename hint: `bitacoraProfesores.pdf`.
+
+---
+
+## Plantillas JasperReports
+
+Both the compiled `.jasper` binaries (used at runtime) and their XML source `.jrxml` files are committed in the repository under `src/main/webapp/reports/`. The `.jasper` files are loaded at request time via `JRLoader.loadObjectFromFile(ruta)`.
+
+| Archivo fuente | Archivo compilado |
+|---|---|
+| `BitacorasDeAlumnos.jrxml` | `BitacorasDeAlumnos.jasper` |
+| `BitacoraProfesores.jrxml` | `BitacoraProfesores.jasper` |
+| `ListaCalificaciones.jrxml` | `ListaCalificaciones.jasper` |
+| `ListaSeguimientoPago.jrxml` | `ListaSeguimientoPago.jasper` |
+
+To modify a report's layout:
+1. Edit the `.jrxml` source file in JasperSoft Studio or a compatible editor.
+2. Compile it to produce a new `.jasper` binary (`JasperCompileManager.compileReport("file.jrxml")`).
+3. Replace the `.jasper` file in `src/main/webapp/reports/` and redeploy.
+
+<Note>
+  The `ruta_imagenes` parameter is the **absolute server-side path** to the `Images/` directory, resolved at runtime via `getServletContext().getRealPath("/Images/")`. It is injected into the JasperReports template as a parameter so the TEI logo image can be embedded in the PDF header. On some servers `getRealPath` may return `null` (e.g. when the WAR is not exploded); in that case the servlet falls back to the relative `Constantes.DOMINIO_IMAGENES` constant.
+</Note>

@@ -1,0 +1,131 @@
+---
+title: "Payment tracking and calendar for TEI students"
+sidebarTitle: "Payments"
+description: "The TEI tracks up to 8 payment slots per student: an enrollment fee plus 7 monthly installments. Administrators mark payments and update the semester calendar."
+---
+
+The TEI's payment system tracks enrollment and up to 7 monthly tuition payments per semester period. Each student has exactly one `payment` record, represented by the `Payment` model class (`model.Tables.Payment`). Administrators update payment status; students view their current standing in a read-only table. The payment calendar (`pay_simbology` table) defines the amounts, months, and deadlines for each slot and is managed separately by administrators.
+
+## Estructura del seguimiento de pago
+
+The `payment` table maps directly to the `Payment` Java model and contains the following fields:
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id_payment` | INT (PK) | Identificador del registro |
+| `register_payment` | BOOLEAN | ¿Pagó la inscripción? |
+| `pay_1` | BOOLEAN | Mensualidad 1 pagada |
+| `pay_2` | BOOLEAN | Mensualidad 2 pagada |
+| `pay_3` | BOOLEAN | Mensualidad 3 pagada |
+| `pay_4` | BOOLEAN | Mensualidad 4 pagada |
+| `pay_5` | BOOLEAN | Mensualidad 5 pagada |
+| `pay_6` | BOOLEAN | Mensualidad 6 pagada |
+| `pay_7` | BOOLEAN | Mensualidad 7 pagada |
+| `payment_status` | INT (FK) | Estado del alumno: Activo, Baja, Pendiente (tabla `payment_status`) |
+
+New students are created with all boolean fields set to `false` and `payment_status = 1` (Activo).
+
+## Ver seguimiento de pago (alumno)
+
+Students navigate to `/view/pagos/seguimientoPago.jsp` from the **Seguimiento** item in their lateral menu. The page uses the `pagos` session attribute (set at login as `per.getId_payment_student()`) to load the correct `payment` record without requiring any URL parameter.
+
+The page renders two tables:
+
+1. **Tabla de estado general** — shows the student's current status (`payment_status`), the current month, and the active semester period.
+2. **Tabla de mensualidades** — one row per calendar slot from `pay_simbology`, filtered for the current period via `base.obtenerCalendarioFiltrado()`. Each row shows:
+
+   | Columna | Descripción |
+   |---|---|
+   | **#** | Número de orden |
+   | **Mes Correspondiente** | Nombre del mes del calendario |
+   | **Concepto de Pago** | Descripción del concepto (e.g., "Inscripción", "Mensualidad Enero") |
+   | **Costo ($)** | Importe en MXN |
+   | **Fecha de Corte** | Fecha límite, o "NO APLICA" si `deadline_pay` es `null` |
+   | **Estatus de Referencia** | "PAGADO" (verde) o "PENDIENTE" (rojo), driven by the JS file `seguimientoPagoJScript.js` |
+
+The color coding uses inline styles: green `rgba(63, 166, 83, 0.5)` for paid, red `rgba(245, 39, 39, 0.5)` for pending.
+
+## Actualizar pagos (administrador)
+
+<Steps>
+  <Step title="Localizar el registro del alumno">
+    From the student list at `/view/listas/listaAlumnos.jsp`, click the payment icon next to the
+    student to navigate to their payment record.
+  </Step>
+  <Step title="Abrir la vista de seguimiento de pago">
+    The administrator is taken to `/view/pagos/seguimientoPago.jsp?idPay={id_payment}`. The `idPay`
+    query parameter overrides the session-based lookup so the admin can view any student's record.
+  </Step>
+  <Step title="Actualizar estado y mensualidades">
+    For administrators, each payment slot renders as a `<select>` dropdown (PAGADA / PENDIENTE) with a
+    matching color background. The student status dropdown also becomes editable, with all options from
+    the `payment_status` table.
+  </Step>
+  <Step title="Enviar el formulario">
+    Click **Actualizar Pagos**. A SweetAlert confirmation dialog appears. On confirmation, the form
+    submits `POST /tallerDeInglesUAEM/updatePay`. The servlet:
+
+    - Reads `idPayment` (int) from the request
+    - Reads each payment checkbox/select using null-safe comparison:
+      `"1".equals(request.getParameter("mensualidadX"))`
+    - Reads `status` (int) for the `payment_status` FK
+    - Builds a `Payment` object and calls `bd.actualizarSeguimientoDePago(pay)`
+    - Sets a success message in the session and redirects to `/view/listas/listaAlumnos.jsp`
+
+    ```
+    POST /tallerDeInglesUAEM/updatePay
+    Parameters:
+      idPayment              (int)  — id_payment del registro a actualizar
+      mensualidadInscripcion (0|1)  — inscripción pagada
+      mensualidad1           (0|1)  — mensualidad 1
+      mensualidad2           (0|1)  — mensualidad 2
+      mensualidad3           (0|1)  — mensualidad 3
+      mensualidad4           (0|1)  — mensualidad 4
+      mensualidad5           (0|1)  — mensualidad 5
+      mensualidad6           (0|1)  — mensualidad 6
+      mensualidad7           (0|1)  — mensualidad 7
+      status                 (int)  — FK a payment_status
+      nombreCompleto         (String) — nombre completo (usado en el mensaje de éxito)
+    ```
+  </Step>
+  <Step title="Verificar el resultado">
+    After the redirect the administrator returns to the student list. The success SweetAlert fires
+    from the `actualizacionCompleta` session attribute set by the servlet.
+  </Step>
+</Steps>
+
+## Calendario de mensualidades
+
+The `pay_simbology` table defines the payment calendar. Administrators manage individual calendar rows at `/view/pagos/calendario.jsp`. Clicking the pen icon next to a row loads the same page with `?id_month={id_pay}`, converting the table into an editable form that submits to `POST /tallerDeInglesUAEM/updateSchedule`.
+
+Each row of `pay_simbology` represents one payment period entry:
+
+| Campo | Descripción |
+|---|---|
+| `month` | Nombre del mes (e.g., `Enero`, `Febrero`, `NA` para inscripción) |
+| `description_pay` | Descripción del concepto de pago |
+| `cost_pay` | Costo en MXN (editable en pasos de 50.0) |
+| `period_pay` | Periodo de vigencia: `Periodo A`, `Periodo B`, o `Cualquiera` |
+| `deadline_pay` | Fecha límite de pago (tipo `DATE`); `null` si no aplica |
+
+Rows with `month = "NA"` are highlighted in red on the calendar table to indicate special entries (e.g., inscription/re-inscription) with no specific month mapping.
+
+## Cambiar periodo semestral
+
+The calendar supports two semesters: **Periodo A** and **Periodo B**. Administrators switch the active period by clicking **Actualizar periodo** on the calendar page. This submits a form to `POST /tallerDeInglesUAEM/updatePeriodo` with a single hidden parameter, `periodoActual`, containing the currently displayed period string. The `updatePeriodo` servlet calls `bd.actualizarCalendario(periodoActual)`, which toggles all non-`Cualquiera` rows from A to B or B to A.
+
+```
+POST /tallerDeInglesUAEM/updatePeriodo
+Parameters:
+  periodoActual (String) — el periodo actualmente mostrado en el calendario;
+                           el backend lo alterna automáticamente (A ↔ B)
+```
+
+The active period displayed on `seguimientoPago.jsp` and `vistaCalificaciones.jsp` is determined at runtime by `base.obtenerPeriodo(mesActual)`, which looks up the current month in `pay_simbology`. If the current month is not found (e.g., during a transition), it falls back to `base.obtenerPeriodo(1)`, the first entry in the calendar table.
+
+<Tip>
+  Rows with `period_pay = "Cualquiera"` in `pay_simbology` are not changed when the administrator
+  switches periods — they apply to both semesters. The enrollment / re-inscription fee (`id_pay = 13`,
+  `month = "Inscripcion / Reinscripcion"`) is a typical example: its month field cannot be edited and
+  its `deadline_pay` is left as `null` (shown as "NO APLICA").
+</Tip>

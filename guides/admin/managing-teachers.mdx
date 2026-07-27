@@ -1,0 +1,84 @@
+---
+title: "Register and manage teachers in TEI"
+sidebarTitle: "Teachers"
+description: "Add teacher profiles, assign groups and classrooms, update contact information, and manage their active or inactive status in the TEI system."
+---
+
+Teachers in the TEI are linked to a group and classroom. Each teacher has a login account with the `MAESTRO` role and a profile in the `teachers` table containing personal data, group assignment, classroom, and active/inactive status. The teacher list is accessible at `/view/listas/listaProfesores.jsp`.
+
+## Registrar un profesor
+
+<Steps>
+  <Step title="Navigate to Agregar Profesor">
+    From the admin lateral menu, click **Maestros** to open the teacher list, then click the **Agregar Profesor** button. This navigates to `/view/add/agregarInformacion.jsp?add=2`.
+  </Step>
+  <Step title="Fill the registration form">
+    Complete all required fields at `/view/add/agregarProfesor.jsp`:
+    - **Apellido Paterno** — first surname
+    - **Apellido Materno** — second surname
+    - **Nombre** — given name(s)
+    - **Teléfono** — contact phone number
+    - **Email** — contact email address
+    - **Fecha de Nacimiento** — birth date in `YYYY-MM-DD` format
+    - **Status del Profesor** — `Activo` or `Inactivo`
+    - **Grupo asignado** — group ID (optional, nullable)
+    - **Salón de clases** — classroom identifier
+    - **Contraseña** — must be entered twice to confirm
+  </Step>
+  <Step title="Submit the form">
+    The form submits via `POST` to the `addTeacher` servlet (`/tallerDeInglesUAEM/addTeacher`), which:
+    - Converts all name fields to uppercase
+    - Auto-generates a username from names and birthdate using the same pattern as students (`[AP1][AP2][AM1][N1][N2][N3][YY][MM][DD]`)
+    - Hashes the password with **SHA-256** before storage
+    - Checks the `teachers` table for a duplicate username — if found, redirects to the teacher list with a warning and the conflicting username
+    - Creates a new record in `users` (role: `PROFESOR`)
+    - Creates the final record in `teachers` with all provided field values
+  </Step>
+  <Step title="Confirmation">
+    On success, the servlet redirects to the teacher list at `/view/listas/listaProfesores.jsp` and a SweetAlert2 pop-up confirms the registration with the generated username. If passwords did not match, the form reloads with an error notice.
+  </Step>
+</Steps>
+
+## Campos del profesor
+
+| Campo | Descripción |
+|---|---|
+| `apellido_paterno_teacher` | Apellido paterno |
+| `apellido_materno_teacher` | Apellido materno |
+| `nombre_teacher` | Nombre(s) |
+| `telefono_teacher` | Teléfono de contacto |
+| `email_teacher` | Correo electrónico |
+| `fecha_nacimiento_teacher` | Fecha de nacimiento |
+| `status_teacher` | Estado: `Activo` / `Inactivo` |
+| `id_group_teacher` | ID del grupo asignado (nullable) |
+| `classroom_teacher` | Salón de clases asignado |
+
+The `id_group_teacher` field links the teacher to an entry in the `grupos` table. It may be left empty at registration time and assigned later via the edit form.
+
+## Actualizar información
+
+The same dual-update model used for students applies to teachers:
+
+- **Información personal** (`POST /tallerDeInglesUAEM/updateInfo` with `rango=PROFESOR`): Updates name fields, phone, email, birthdate, status, group assignment, and classroom. The form is at `/view/update/actualizarInformacion.jsp`. After a successful update, the administrator is redirected to `/view/listas/listaProfesores.jsp`.
+
+- **Credenciales de acceso** (`POST /tallerDeInglesUAEM/updateUser` with `rango=PROFESOR`): Updates the username and password in the `users` table. The new password is re-hashed with SHA-256. Both password fields must match or the update is rejected. The form is at `/view/update/actualizarUsuario.jsp`.
+
+## Eliminar un profesor
+
+Deletion posts to `POST /tallerDeInglesUAEM/deleteInformation` with parameters `rango=t`, the teacher's `id`, and their associated `user` id. The servlet executes the following sequence:
+
+<Steps>
+  <Step title="Desvincular alumnos">
+    Calls `bd.desvincularAlumnos(id_teacher)` — sets `id_teacher_student = NULL` for all students currently assigned to this teacher.
+  </Step>
+  <Step title="Eliminar registro del profesor">
+    Calls `bd.eliminarTeacher(id_teacher)` — removes the row from the `teachers` table.
+  </Step>
+  <Step title="Eliminar usuario">
+    Calls `bd.eliminarUsuario(id_user)` — removes the login record from the `users` table.
+  </Step>
+</Steps>
+
+<Warning>
+  Students assigned to this teacher will have their group assignment removed (`id_teacher_student` set to `NULL`). Reassign them to another teacher after deletion to restore their group membership.
+</Warning>

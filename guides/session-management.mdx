@@ -1,0 +1,98 @@
+---
+title: "Session management and timeout handling in TEI"
+sidebarTitle: "Sessions"
+description: "TEI sessions expire after 30 minutes of inactivity. The system detects expired sessions across all JSPs and redirects users to the session-expired page."
+---
+
+TEI uses Jakarta EE's `HttpSession` mechanism to maintain user authentication state across page requests. Sessions time out after 30 minutes of inactivity, as configured in `web.xml`. Every protected JSP checks for a valid session on load and redirects to a dedicated expiration page if the session is missing or has been invalidated.
+
+## Configuración del timeout
+
+The session timeout is declared in the application's deployment descriptor. This is the only session configuration in the project — no programmatic override is used.
+
+```xml web.xml
+<session-config>
+    <session-timeout>
+        30
+    </session-timeout>
+</session-config>
+```
+
+The value is in **minutes**. After 30 minutes of inactivity the GlassFish runtime invalidates the session server-side. The next request from that browser will find no valid session and any protected JSP will redirect to `/view/sesionExpirada.jsp`.
+
+## Atributos de sesión
+
+The following session attributes are read and written by servlets and JSPs throughout the application. All attributes are of type `String`.
+
+| Atributo | Tipo | Descripción |
+|---|---|---|
+| `sesionIniciada` | `String` | Nombre de usuario del usuario autenticado. Set at login by the role servlet (`loginAdmin`, `loginTeacher`, `loginStudent`). Present for the entire authenticated session. |
+| `errorMessage` | `String` | Mensaje de error de login. Set when `USUARIO_NO_ENCONTRADO` or `DATO_INCORRECTO` is returned; read and displayed by the SweetAlert error modal on the login JSP. |
+| `actualizacionCompleta` | `String` | Mensaje de confirmación de operación CRUD. Set after a successful add, update, or delete operation to display a confirmation popup on the next page load. |
+| `userNameRegistrado` | `String` | Username del usuario creado/encontrado. Set by `addStudent`, `addTeacher`, and `addAdmin` servlets to surface the generated or existing username to the administrator. |
+| `iconoVentana` | `String` | Tipo de icono SweetAlert2 a mostrar: `success`, `warning`, o `error`. Controls which visual style the popup uses after a CRUD operation. |
+| `contraseñaIncorrecta` | `String` | Error en validación de contraseñas al registrar. Set when the two password fields do not match during registration; triggers the mismatch error modal on redirect. |
+
+## Comprobación de sesión en JSPs
+
+Every protected JSP in the application begins with a session guard scriptlet. The guard runs before any HTML is rendered and immediately redirects the user to the expiration page if the session is absent or does not contain the `sesionIniciada` attribute.
+
+The pattern used across all role dashboards (`menuAdministrador.jsp`, `menuAlumno.jsp`, `menuProfesor.jsp`, and every sub-page) is:
+
+```java JSP session guard
+<%
+    // Obtain the existing session — never create a new one here
+    HttpSession sesion = request.getSession();
+    String usuario = (String) sesion.getAttribute("sesionIniciada");
+    if (usuario == null) {
+        response.sendRedirect(Constantes.VentanasJSP.URL_SESION_EXPIRADA);
+        return;
+    }
+%>
+```
+
+<Note>
+  `Constantes.VentanasJSP.URL_SESION_EXPIRADA` resolves to `/tallerDeInglesUAEM/view/sesionExpirada.jsp`. The `return` statement after `sendRedirect` is mandatory in JSP scriptlets — without it the page would continue rendering below the redirect.
+</Note>
+
+After the guard passes, the page retrieves the authenticated username from `sesionIniciada` and uses it to query the database for the current user's profile data (name, role, group, etc.).
+
+## Cerrar sesión
+
+The `cerrarSesion` servlet (mapped to `/cerrarSesion`) handles logout for all three roles. It reads the `rango` session attribute to determine the correct post-logout redirect URL, then calls `session.invalidate()` to destroy the session server-side.
+
+```java cerrarSesion.java
+HttpSession sesion = request.getSession();
+if (sesion != null) {
+    String rango = sesion.getAttribute("rango").toString();
+    // Determine role-specific redirect URL from rango…
+    sesion.invalidate();
+}
+response.sendRedirect(url); // role login page, or URL_INDEX as fallback
+```
+
+The role-to-URL mapping used after invalidation:
+
+| Rango | Redirect destino |
+|---|---|
+| `ESTUDIANTE` | `Constantes.VentanasJSP.URL_LOGIN_ALUMNO` |
+| `ADMINISTRADOR` | `Constantes.VentanasJSP.URL_LOGIN_ADMIN` |
+| `PROFESOR` | `Constantes.VentanasJSP.URL_LOGIN_TEACHER` |
+| *(no session / null rango)* | `Constantes.VentanasJSP.URL_SESION_EXPIRADA` |
+
+The logout link that calls `/cerrarSesion` is present in all three side navigation menus (`menuLateralAdministradores.jsp`, `menuLateralAlumnos.jsp`, `menuLateralProfesores.jsp`).
+
+## Página de sesión expirada
+
+The dedicated expiration page at `/view/sesionExpirada.jsp` is the landing point for all unauthenticated access attempts. It displays a visual indicator image (`sesionExpirada1.png`) and a descriptive message, then offers a button to navigate back to the appropriate entry point.
+
+The page inspects the `rango` session attribute to decide where the button links:
+
+- If `rango` is present (the session still exists but `sesionIniciada` was missing), the button text becomes **"Volver a la sesion"** and points to the corresponding role dashboard, so returning users with a partially-valid session are not stranded.
+- If no `rango` is found, the button text becomes **"Volver a Inicio"** and points to the public index page (`index.html`).
+
+Users should re-authenticate through the correct login portal to resume working. Any work in progress since the last request will be lost after session expiry.
+
+<Tip>
+  If you are testing and keep getting redirected to the session expired page, make sure cookies are enabled in your browser. The session ID is stored as a `JSESSIONID` cookie by GlassFish. Disabling cookies or using private/incognito windows without cookie acceptance will prevent the session from being maintained across redirects.
+</Tip>

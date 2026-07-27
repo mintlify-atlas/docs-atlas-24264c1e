@@ -1,0 +1,96 @@
+---
+title: "Record and update student grades in TEI"
+sidebarTitle: "Grades"
+description: "Teachers enter first and second partial grades for each student in their assigned group. The system auto-calculates the final average and stores it in the report table."
+---
+
+The TEI uses a two-partial grading system. Teachers can enter or update grades for each student in their assigned group from a single DataTables-powered list. The final average is calculated automatically by the `updateGrade` servlet on every submission and stored directly in the `report` table — no manual calculation is required.
+
+## Estructura de calificaciones
+
+Each student has exactly one `report` record, represented by the `Report` model class (`model.Tables.Report`). The table has four columns:
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id_report` | INT (PK) | Identificador del registro |
+| `first_partial_report` | DOUBLE | Calificación del 1er parcial (0–10) |
+| `second_partial_report` | DOUBLE | Calificación del 2do parcial (0–10) |
+| `avg_report` | DOUBLE | Promedio final calculado automáticamente |
+
+New students are created with all three grade values initialized to `0.0`.
+
+## Registrar calificaciones
+
+<Steps>
+  <Step title="Navegar a la sección de Información del grupo">
+    From the teacher lateral menu, click **Información del grupo**. This navigates to
+    `/view/calificaciones/asignarCalificaciones.jsp`.
+  </Step>
+  <Step title="Cargar la lista de alumnos">
+    The JSP reads the `gruposId` session attribute (set at login) and calls
+    `base.obtenerCalificacionesPorGrupo(Integer.parseInt(id_teacher))` to retrieve all students in the
+    teacher's assigned group. Each row shows apellido paterno, apellido materno, nombre(s), primer parcial,
+    segundo parcial, and promedio.
+  </Step>
+  <Step title="Acceder al formulario de calificaciones de un alumno">
+    Click the graduation-cap icon (<i class="fa-solid fa-graduation-cap" />) next to any student. This
+    opens `/view/calificaciones/vistaCalificaciones.jsp?idGrade={id_report}`, where the teacher can edit
+    the two partial grades.
+  </Step>
+  <Step title="Ingresar las calificaciones">
+    Enter the **Primer Parcial** (`firstPartial`) and **Segundo Parcial** (`secondPartial`) values in the
+    numeric input fields. Both accept decimal steps of `0.1` with a `max` of `10`. The current saved
+    values are pre-filled.
+  </Step>
+  <Step title="Enviar el formulario">
+    Click **Actualizar Calificaciones**. A SweetAlert confirmation dialog appears first. On confirmation,
+    the form submits `POST /tallerDeInglesUAEM/updateGrade`. The servlet:
+
+    - Reads `idGrade` (int), `firstPartial` (double), and `secondPartial` (double) from the request
+    - Calculates the average: `(firstPartial + secondPartial) / 2`
+    - Builds a `Report` object and calls `bd.actualizarReporteCalificaciones(calificaciones)` to update the row
+    - Sets a success message in the session (`actualizacionCompleta`)
+    - Redirects the teacher back to `/view/calificaciones/asignarCalificaciones.jsp`
+  </Step>
+</Steps>
+
+## Ver calificaciones del grupo
+
+The grade view at `/view/calificaciones/vistaCalificaciones.jsp` is accessible to teachers, students, and administrators. When accessed by a **teacher**, it shows the individual student's current grade record in an editable form. The page also displays:
+
+- **Ciclo Escolar** — derived from the current year and semester period via `base.obtenerPeriodo(mesActual)`
+- **Grupo** — the student's assigned group label
+- **Profesor Asignado** — the teacher's full name
+- **Primer Parcial / Segundo Parcial / Promedio** — the three `report` fields (color-coded red/green for students; editable inputs for teachers and admins)
+
+The DataTables library (Bootstrap 5 theme, Spanish locale) is applied to the historical grades table on this page.
+
+## Actualizar calificaciones
+
+Grades can be updated any number of times. Each submission to `POST /updateGrade` completely overwrites the existing `first_partial_report`, `second_partial_report`, and `avg_report` values in the `report` table for that student. This makes grade corrections straightforward — simply re-enter the corrected values and submit again.
+
+The redirect destination after a successful update depends on the caller's role:
+
+| Rol | Redirección |
+|---|---|
+| `PROFESOR` | `/view/calificaciones/asignarCalificaciones.jsp` |
+| `ADMINISTRADOR` | `/view/listas/listaAlumnos.jsp` |
+
+## Parámetros del servlet
+
+```
+POST /tallerDeInglesUAEM/updateGrade
+Parameters:
+  idGrade        (int)    — id_report del alumno a actualizar
+  firstPartial   (double) — calificación del 1er parcial
+  secondPartial  (double) — calificación del 2do parcial
+  nombreCompleto (String) — nombre completo (usado en el mensaje de éxito)
+```
+
+The servlet is declared with `@WebServlet(name = "updateGrade", urlPatterns = {"/updateGrade"})` and handles both `GET` and `POST` via the same `processRequest` method. The full context-relative URL is `/tallerDeInglesUAEM/updateGrade` as defined in `Constantes.Servlets.SERVLET_ACTUALIZAR_CALIFICACIONES`.
+
+<Tip>
+  Grades are entered as decimal numbers (e.g., `8.5` or `9`). The HTML inputs enforce `min="0"` and
+  `max="10"` at the browser level, but the servlet does not enforce a server-side maximum.
+  Administrators should inform teachers of the scale (typically 0–10) to ensure consistent grading.
+</Tip>

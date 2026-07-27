@@ -1,0 +1,100 @@
+---
+title: "System architecture: MVC layers and technology stack"
+sidebarTitle: "Architecture"
+description: "The TEI system follows a classic MVC pattern on Jakarta EE 10. Controller servlets coordinate JSP views and a JDBC-backed model layer against MySQL."
+---
+
+El sistema del Taller de Inglés es una aplicación web Jakarta EE 10 empaquetada como un único archivo WAR y desplegada en GlassFish 7+. Sigue un patrón **MVC (Modelo–Vista–Controlador)** clásico: las vistas son páginas JSP servidas desde `src/main/webapp/view/`, la capa de control son Servlets Jakarta EE anotados con `@WebServlet`, y la capa de modelo es un conjunto de clases Java que se comunican directamente con MySQL 8 a través de JDBC usando `PreparedStatement`. No hay ningún ORM — toda la persistencia pasa por la clase `BaseDatos`, que centraliza todas las operaciones CRUD.
+
+## Capas del sistema
+
+### Vista (JSP)
+
+Las vistas son páginas JSP organizadas en `src/main/webapp/view/` según su función:
+
+- `login/` — Formularios de inicio de sesión para los tres roles (administrador, profesor, alumno)
+- `principal/` — Menús de bienvenida por rol, punto de entrada tras autenticarse
+- `listas/` — Tablas de consulta de alumnos, profesores, administradores, grupos y documentos
+- `add/` — Formularios para agregar nuevos registros al sistema
+- `update/` — Formularios de actualización de información personal y credenciales
+- `calificaciones/` — Asignación y visualización de calificaciones parciales y promedios
+- `pagos/` — Seguimiento de pagos individuales y calendario de mensualidades
+- `menuLateral/` — Componentes de menú lateral incluidos por cada vista principal
+- `sweetAlert/` — Ventanas emergentes de resultado (éxito, error, advertencia, correcto)
+
+El front-end consume recursos externos vía CDN: **Bootstrap 5.1.3** para el layout y componentes, **DataTables 1.13.6** para tablas interactivas con búsqueda y paginación, **SweetAlert2 11** para alertas modales, y **Font Awesome 6.7.2** para iconografía.
+
+### Controlador (Servlets)
+
+La capa de control está formada por servlets Jakarta Servlet 6 ubicados en `controller/servlet/`, cada uno anotado con `@WebServlet` y mapeado a una URL semántica (por ejemplo, `/addStudent`, `/updateGrade`, `/reportesServlet`). Los servlets:
+
+1. Reciben peticiones HTTP GET o POST desde los formularios JSP
+2. Extraen y validan los parámetros del request
+3. Invocan los métodos correspondientes de la clase `BaseDatos`
+4. Escriben atributos en el `HttpSession` o en el `HttpServletRequest`
+5. Redirigen al JSP de resultado apropiado (éxito, error o lista actualizada)
+
+Las sesiones de usuario se almacenan en `HttpSession` con un **timeout de 30 minutos**, configurado en `WEB-INF/web.xml`. Cuando la sesión expira, el sistema redirige al usuario a la vista `sesionExpirada.jsp`.
+
+### Modelo (JDBC)
+
+La capa de modelo no usa ningún ORM. Se compone de:
+
+- **`BaseDatos`** (`controller/BaseDatos.java`) — clase central que implementa todas las operaciones CRUD. Abre una nueva conexión JDBC para cada operación usando `DriverManager.getConnection()` con el driver `com.mysql.cj.jdbc.Driver` (mysql-connector-j 8.3.0). Todas las consultas usan `PreparedStatement` para evitar inyección SQL.
+- **POJOs de tabla** (`model/Tables/`) — clases Java simples que representan cada tabla de la base de datos: `Students`, `Teachers`, `Admin_school`, `Grupos`, `Grade`, `Category`, `Report`, `Payment`, `Payment_status`, `Pay_simbology`, `Users`.
+- **Objetos de consulta** (`model/Consultas/`) — clases que representan los resultados de JOINs multi-tabla, usados cuando las vistas necesitan mostrar datos combinados: `ConsultaAlumnos`, `ConsultaTeacher`, `ConsultasAdmin`, `ConsultaGrupos`.
+
+## Tecnologías
+
+| Categoría | Tecnología | Versión |
+|---|---|---|
+| Runtime | Jakarta EE | 10.0.0 |
+| Servidor | GlassFish | 7+ |
+| Base de datos | MySQL | 8+ |
+| JDBC Driver | mysql-connector-j | 8.3.0 |
+| Build | Maven | 3.8.1+ |
+| Java | OpenJDK | 11+ |
+| Reportes PDF | JasperReports | 7.0.3 |
+| Reportes Excel | Apache POI | 5.2.3 |
+| UI | Bootstrap | 5.1.3 |
+| Alerts | SweetAlert2 | 11 |
+| Tables | DataTables | 1.13.6 |
+
+## Estructura de paquetes
+
+```
+src/main/java/
+├── controller/
+│   ├── BaseDatos.java          # CRUD principal contra MySQL
+│   ├── Constantes.java         # URLs, rutas y constantes globales
+│   ├── Reportes.java           # Generación de PDF con JasperReports
+│   ├── Respaldo.java           # Exportación Excel/SQL
+│   ├── SHA256.java             # Hash de contraseñas
+│   ├── servlet/                # Servlets Jakarta EE (@WebServlet)
+│   └── struct/                 # Interfaces de contrato
+├── model/
+│   ├── Tables/                 # POJOs representando tablas de BD
+│   └── Consultas/              # Objetos para resultados de JOIN
+└── uaemex/mx/tallerdeinglesuaem/
+    └── JakartaRestConfiguration.java
+src/main/webapp/
+├── WEB-INF/
+│   └── web.xml                 # Configuración de sesión (30 min)
+├── css/                        # Hojas de estilo por vista
+├── js/                         # Scripts: login, alertas, pagos
+├── Images/                     # Logos, fotos, iconos
+├── reports/                    # Plantillas JasperReports (.jasper/.jrxml)
+├── view/                       # JSPs organizados por función
+└── index.html                  # Página principal pública
+```
+
+## Flujo de una solicitud
+
+Cada interacción del usuario sigue este ciclo de vida a través de las tres capas:
+
+1. **El usuario envía un formulario** en una vista JSP (por ejemplo, el formulario de inscripción de un nuevo alumno).
+2. **El navegador realiza un POST o GET** a la URL del servlet correspondiente (por ejemplo, `/tallerDeInglesUAEM/addStudent`).
+3. **El servlet lee los parámetros** del request con `request.getParameter()`, valida los datos y construye los objetos de modelo necesarios.
+4. **`BaseDatos` ejecuta un `PreparedStatement`** contra MySQL 8, devolviendo un resultado o confirmando la operación.
+5. **El servlet establece atributos** en la sesión (`HttpSession`) o en el request (`HttpServletRequest`) y redirige con `response.sendRedirect()` o hace `forward()` al JSP de destino.
+6. **El JSP renderiza la respuesta** utilizando los atributos inyectados, presentando los datos en tablas interactivas de DataTables sobre un layout Bootstrap.
